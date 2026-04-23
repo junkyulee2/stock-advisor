@@ -2,7 +2,7 @@
 
 Uses Malgun Gothic TTF (bundled with Windows) embedded into the PDF so
 Korean glyphs render on any viewer. Saves to Desktop as
-'Stock Advisor - 엔진 설명서.pdf'.
+'춘큐 스탁 어드바이져 - 엔진 설명서.pdf'.
 """
 from __future__ import annotations
 
@@ -226,8 +226,8 @@ def build_pdf(out_path: Path, md_text: str) -> None:
         str(out_path), pagesize=A4,
         leftMargin=18 * mm, rightMargin=18 * mm,
         topMargin=20 * mm, bottomMargin=18 * mm,
-        title="Stock Advisor - 엔진 설명서",
-        author="Stock Advisor",
+        title="춘큐 스탁 어드바이져 - 엔진 설명서",
+        author="춘큐 스탁 어드바이져",
     )
     flows = md_to_flowables(md_text, styles, font, font_bold)
     doc.build(flows)
@@ -236,7 +236,7 @@ def build_pdf(out_path: Path, md_text: str) -> None:
 def main() -> None:
     md_text = MD_PATH.read_text(encoding="utf-8")
     desktop = find_desktop()
-    out_path = desktop / "Stock Advisor - 엔진 설명서.pdf"
+    out_path = desktop / "춘큐 스탁 어드바이져 - 엔진 설명서.pdf"
     build_pdf(out_path, md_text)
     print(f"PDF saved to: {out_path}")
 

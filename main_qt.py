@@ -12,7 +12,7 @@ from gui.main_window import MainWindow
 
 def main() -> None:
     app = QApplication(sys.argv)
-    app.setApplicationName("Stock Advisor")
+    app.setApplicationName("춘큐 스탁 어드바이져")
     app.setOrganizationName("HomeAI")
     win = MainWindow()
     win.show()

@@ -54,7 +54,7 @@ def should_skip(path: Path, rel: Path) -> bool:
 def main() -> None:
     desktop = find_desktop()
     stamp = datetime.now().strftime("%Y%m%d_%H%M")
-    zip_path = desktop / f"Stock Advisor - project ({stamp}).zip"
+    zip_path = desktop / f"춘큐 스탁 어드바이져 - project ({stamp}).zip"
 
     count = 0
     size_total = 0

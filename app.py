@@ -12,7 +12,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="Stock Advisor", page_icon="📈", layout="wide")
+st.set_page_config(page_title="춘큐 스탁 어드바이져", page_icon="📈", layout="wide")
 
 # --- CSS polish ---
 st.markdown(
@@ -49,7 +49,7 @@ SCORES_DIR = PROJECT_ROOT / CONFIG["paths"]["scores_dir"]
 # --- Header ---
 col_title, col_subtitle = st.columns([2, 3])
 with col_title:
-    st.markdown("## 📈 Stock Advisor")
+    st.markdown("## 📈 춘큐 스탁 어드바이져")
 with col_subtitle:
     st.caption("Momentum × Supply-Demand + Quality Guard · Cloud MVP")
 

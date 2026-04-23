@@ -130,7 +130,7 @@ class MainWindow(QMainWindow):
         icon_path = PROJECT_ROOT / "assets" / "icon.ico"
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
-        self.setWindowTitle("Stock Advisor")
+        self.setWindowTitle("춘큐 스탁 어드바이져")
         self.resize(1400, 900)
         self.setStyleSheet(main_qss())
         self._worker: PipelineWorker | None = None
@@ -170,7 +170,7 @@ class MainWindow(QMainWindow):
         # title block
         title_block = QVBoxLayout()
         title_block.setSpacing(0)
-        t = QLabel("Stock Advisor")
+        t = QLabel("춘큐 스탁 어드바이져")
         t.setObjectName("HeaderTitle")
         s = QLabel("Momentum × Supply-Demand + Quality Guard")
         s.setObjectName("HeaderSubtitle")
@@ -258,7 +258,7 @@ class MainWindow(QMainWindow):
         self._log.setObjectName("LogView")
         self._log.setReadOnly(True)
         self._log.setFixedHeight(100)
-        self._log.appendPlainText(f"[{_ts()}] Stock Advisor started.")
+        self._log.appendPlainText(f"[{_ts()}] 춘큐 스탁 어드바이져 started.")
         fl.addWidget(self._log)
 
         root.addWidget(footer)

@@ -468,75 +468,16 @@ with tab_rec:
             as_of = df["as_of"].iloc[0] if "as_of" in df.columns else "?"
             st.markdown(
                 f'<div style="margin-bottom:12px;color:#9aa8c7;font-size:12px;">'
-                f'<b style="color:#f0f5ff;">{as_of}</b> 기준 · '
-                f'시장 국면: <span class="pill pill-blue">{regime}</span> · '
-                f'85+ <b style="color:#22c55e">{n85}</b>개 · '
-                f'90+ <b style="color:#22c55e">{n90}</b>개</div>',
+                f'<b style="color:#f0f5ff;">{as_of}</b> · '
+                f'국면 <span class="pill pill-blue">{regime}</span> · '
+                f'85+ <b style="color:#22c55e">{n85}</b> · '
+                f'90+ <b style="color:#22c55e">{n90}</b></div>',
                 unsafe_allow_html=True,
             )
 
-            # ---- Charts ----
-            cc1, cc2 = st.columns([1, 1])
-            with cc1:
-                st.markdown('<div class="small-label" style="margin:6px 0 4px;">점수 분포 (전체 유니버스)</div>',
-                            unsafe_allow_html=True)
-                fig_dist = go.Figure()
-                fig_dist.add_trace(go.Histogram(
-                    x=df["total_score"], nbinsx=30,
-                    marker=dict(color="#3b82f6", line=dict(width=0)),
-                    opacity=0.85,
-                ))
-                for thr, label, color in [(85, "85 추천", "#22c55e"),
-                                          (90, "90 강추", "#fbbf24"),
-                                          (95, "95 최강", "#ef4444")]:
-                    fig_dist.add_vline(x=thr, line=dict(color=color, width=1.5, dash="dash"),
-                                       annotation_text=label, annotation_position="top",
-                                       annotation_font_size=10, annotation_font_color=color)
-                fig_dist.update_layout(
-                    template="plotly_dark", paper_bgcolor="#111c33",
-                    plot_bgcolor="#111c33",
-                    font=dict(color="#e5edff", family="Segoe UI", size=11),
-                    margin=dict(l=40, r=20, t=30, b=36), height=270,
-                    bargap=0.05, showlegend=False,
-                    xaxis=dict(title="총점", range=[0,100], gridcolor="#1b2744", zeroline=False),
-                    yaxis=dict(title="종목 수", gridcolor="#1b2744", zeroline=False),
-                )
-                st.plotly_chart(fig_dist, use_container_width=True, theme=None)
-
-            with cc2:
-                st.markdown('<div class="small-label" style="margin:6px 0 4px;">상위 10종목 팩터 구성</div>',
-                            unsafe_allow_html=True)
-                top10 = df.head(10).copy().iloc[::-1]
-                fig_stack = go.Figure()
-                weights = CONFIG["scoring"]["factors"]
-                for col, name, color, w in [
-                    ("mean_reversion_score", "역추세", "#fbbf24", weights["mean_reversion"]),
-                    ("quality_score",        "퀄리티", "#a855f7", weights["quality"]),
-                    ("supply_demand_score",  "수급",   "#3b82f6", weights["supply_demand"]),
-                    ("momentum_score",       "모멘텀", "#22c55e", weights["momentum"]),
-                ]:
-                    if col not in top10.columns:
-                        continue
-                    fig_stack.add_trace(go.Bar(
-                        y=top10["name"], x=top10[col] * w / 100.0,
-                        orientation="h", name=name, marker=dict(color=color),
-                    ))
-                fig_stack.update_layout(
-                    template="plotly_dark", paper_bgcolor="#111c33",
-                    plot_bgcolor="#111c33",
-                    font=dict(color="#e5edff", family="Segoe UI", size=11),
-                    margin=dict(l=130, r=20, t=30, b=36), height=270,
-                    barmode="stack", showlegend=True,
-                    legend=dict(orientation="h", yanchor="bottom", y=-0.4,
-                                xanchor="center", x=0.5, font=dict(size=10)),
-                    xaxis=dict(title="가중 기여 점수", gridcolor="#1b2744",
-                               zeroline=False, range=[0, 100]),
-                    yaxis=dict(gridcolor="#1b2744", zeroline=False),
-                )
-                st.plotly_chart(fig_stack, use_container_width=True, theme=None)
-
-            st.write("")
-
+            # ==================================================
+            #  1) STOCK CARDS FIRST (top priority content)
+            # ==================================================
             top = df[df["total_score"] >= min_score].head(10) if n85 else df.head(10)
             held_tickers = set(portfolio["positions"].keys())
             for _, row in top.iterrows():
@@ -585,6 +526,83 @@ with tab_rec:
 
                 elif not CLOUD_MODE and not held and rec.get("amount_krw", 0) > 0:
                     st.caption(f"💡 {rec['name']} 매수는 데스크탑 앱 또는 GITHUB_TOKEN 설정 후 가능")
+
+            # ==================================================
+            #  2) CHARTS — below, collapsed (static, no touch/hover)
+            # ==================================================
+            # Config: disable all interactivity so mobile doesn't "select" chart.
+            static_cfg = {
+                "staticPlot": True,  # no hover, pan, select — behaves like image
+                "displayModeBar": False,
+                "displaylogo": False,
+            }
+
+            with st.expander("📊 상세 차트 (점수 분포 · Top 10 팩터 구성)", expanded=False):
+                # Score distribution
+                st.markdown(
+                    '<div class="small-label" style="margin:6px 0 4px;">점수 분포 (전체 유니버스)</div>',
+                    unsafe_allow_html=True,
+                )
+                fig_dist = go.Figure()
+                fig_dist.add_trace(go.Histogram(
+                    x=df["total_score"], nbinsx=30,
+                    marker=dict(color="#3b82f6", line=dict(width=0)),
+                    opacity=0.85,
+                ))
+                for thr, label, color in [(85, "85", "#22c55e"),
+                                          (90, "90", "#fbbf24"),
+                                          (95, "95", "#ef4444")]:
+                    fig_dist.add_vline(x=thr, line=dict(color=color, width=1.5, dash="dash"),
+                                       annotation_text=label, annotation_position="top",
+                                       annotation_font_size=10, annotation_font_color=color)
+                fig_dist.update_layout(
+                    template="plotly_dark", paper_bgcolor="#111c33", plot_bgcolor="#111c33",
+                    font=dict(color="#e5edff", family="Segoe UI", size=11),
+                    margin=dict(l=40, r=20, t=24, b=34), height=240,
+                    bargap=0.05, showlegend=False,
+                    xaxis=dict(title="총점", range=[0, 100],
+                               gridcolor="#1b2744", zeroline=False, fixedrange=True),
+                    yaxis=dict(title="종목 수", gridcolor="#1b2744",
+                               zeroline=False, fixedrange=True),
+                    dragmode=False,
+                )
+                st.plotly_chart(fig_dist, use_container_width=True,
+                                theme=None, config=static_cfg)
+
+                # Top 10 factor stack
+                st.markdown(
+                    '<div class="small-label" style="margin:14px 0 4px;">상위 10종목 팩터 구성</div>',
+                    unsafe_allow_html=True,
+                )
+                top10 = df.head(10).copy().iloc[::-1]
+                fig_stack = go.Figure()
+                weights = CONFIG["scoring"]["factors"]
+                for col, name, color, w in [
+                    ("mean_reversion_score", "역추세", "#fbbf24", weights["mean_reversion"]),
+                    ("quality_score",        "퀄리티", "#a855f7", weights["quality"]),
+                    ("supply_demand_score",  "수급",   "#3b82f6", weights["supply_demand"]),
+                    ("momentum_score",       "모멘텀", "#22c55e", weights["momentum"]),
+                ]:
+                    if col not in top10.columns:
+                        continue
+                    fig_stack.add_trace(go.Bar(
+                        y=top10["name"], x=top10[col] * w / 100.0,
+                        orientation="h", name=name, marker=dict(color=color),
+                    ))
+                fig_stack.update_layout(
+                    template="plotly_dark", paper_bgcolor="#111c33", plot_bgcolor="#111c33",
+                    font=dict(color="#e5edff", family="Segoe UI", size=11),
+                    margin=dict(l=110, r=20, t=10, b=50), height=360,
+                    barmode="stack", showlegend=True,
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.15,
+                                xanchor="center", x=0.5, font=dict(size=10)),
+                    xaxis=dict(title="가중 기여 점수", gridcolor="#1b2744",
+                               zeroline=False, range=[0, 100], fixedrange=True),
+                    yaxis=dict(gridcolor="#1b2744", zeroline=False, fixedrange=True),
+                    dragmode=False,
+                )
+                st.plotly_chart(fig_stack, use_container_width=True,
+                                theme=None, config=static_cfg)
 
         except Exception:
             st.error("Score load failed")
@@ -840,12 +858,15 @@ with tab_perf:
             paper_bgcolor="#0b1222", plot_bgcolor="#111c33",
             font=dict(color="#e5edff", family="Segoe UI", size=12),
             margin=dict(l=40, r=20, t=20, b=40), height=360,
-            xaxis=dict(gridcolor="#1b2744", showgrid=True, zeroline=False),
+            xaxis=dict(gridcolor="#1b2744", showgrid=True, zeroline=False, fixedrange=True),
             yaxis=dict(gridcolor="#1b2744", showgrid=True, zeroline=True,
-                       zerolinecolor="#22324f", title="누적 손익 (원)"),
-            showlegend=False,
+                       zerolinecolor="#22324f", title="누적 손익 (원)", fixedrange=True),
+            showlegend=False, dragmode=False,
         )
-        st.plotly_chart(fig, use_container_width=True, theme=None)
+        st.plotly_chart(
+            fig, use_container_width=True, theme=None,
+            config={"staticPlot": True, "displayModeBar": False, "displaylogo": False},
+        )
 
 
 # === Info ===

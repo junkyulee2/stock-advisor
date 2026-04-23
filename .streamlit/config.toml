@@ -10,4 +10,5 @@ textColor = "#f0f5ff"
 font = "sans serif"
 
 [server]
-headless = false
+# Must be true on Streamlit Cloud to skip the interactive welcome prompt.
+headless = true

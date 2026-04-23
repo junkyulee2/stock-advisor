@@ -1,0 +1,48 @@
+{
+  "cash_krw": 0,
+  "positions": {
+    "336370": {
+      "ticker": "336370",
+      "name": "솔루스첨단소재",
+      "entry_price": 15500.0,
+      "entry_date": "2026-04-24",
+      "qty": 6,
+      "initial_qty": 6,
+      "cost_krw": 93000.0,
+      "entry_score": 86.8943623646,
+      "sector": null,
+      "highest_price": 15500.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0
+    },
+    "456040": {
+      "ticker": "456040",
+      "name": "OCI",
+      "entry_price": 137200.0,
+      "entry_date": "2026-04-24",
+      "qty": 1,
+      "initial_qty": 1,
+      "cost_krw": 137200.0,
+      "entry_score": 87.8773830143,
+      "sector": null,
+      "highest_price": 137200.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0
+    },
+    "483650": {
+      "ticker": "483650",
+      "name": "달바글로벌",
+      "entry_price": 229500.0,
+      "entry_date": "2026-04-24",
+      "qty": 1,
+      "initial_qty": 1,
+      "cost_krw": 229500.0,
+      "entry_score": 86.0101066243,
+      "sector": null,
+      "highest_price": 229500.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0
+    }
+  },
+  "updated_at": "2026-04-24"
+}

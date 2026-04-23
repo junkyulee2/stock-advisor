@@ -1,0 +1,34 @@
+{
+  "trades": [
+    {
+      "ticker": "336370",
+      "name": "솔루스첨단소재",
+      "action": "buy",
+      "qty": 6,
+      "price": 15500.0,
+      "cost_krw": 93000.0,
+      "entry_score": 86.8943623646,
+      "entry_date": "2026-04-24"
+    },
+    {
+      "ticker": "456040",
+      "name": "OCI",
+      "action": "buy",
+      "qty": 1,
+      "price": 137200.0,
+      "cost_krw": 137200.0,
+      "entry_score": 87.8773830143,
+      "entry_date": "2026-04-24"
+    },
+    {
+      "ticker": "483650",
+      "name": "달바글로벌",
+      "action": "buy",
+      "qty": 1,
+      "price": 229500.0,
+      "cost_krw": 229500.0,
+      "entry_score": 86.0101066243,
+      "entry_date": "2026-04-24"
+    }
+  ]
+}

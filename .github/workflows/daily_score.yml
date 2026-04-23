@@ -1,0 +1,46 @@
+name: Daily Scores and Signals
+
+on:
+  schedule:
+    # KST 18:30 = UTC 09:30 (after market close)
+    - cron: '30 9 * * 1-5'
+    # KST 09:30 / 11:30 / 13:30 / 15:10 for intraday sell checks
+    - cron: '30 0,2,4 * * 1-5'
+    - cron: '10 6 * * 1-5'
+  workflow_dispatch: {}
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Determine mode
+        id: mode
+        run: |
+          HOUR_UTC=$(date -u +%H)
+          if [ "$HOUR_UTC" -ge 9 ]; then
+            echo "mode=both" >> $GITHUB_OUTPUT
+          else
+            echo "mode=signals" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run pipeline
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python run_daily.py --mode ${{ steps.mode.outputs.mode }}
+
+      - name: Commit updated data
+        run: |
+          git config user.name "stock-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet || git commit -m "chore: update data [$(date -u +%Y-%m-%dT%H:%MZ)]"
+          git push

@@ -1,0 +1,14 @@
+FinanceDataReader>=0.9.100
+pandas>=2.0.0
+numpy>=1.24.0
+PyQt6>=6.6.0
+pyqtgraph>=0.13.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+PyYAML>=6.0
+python-dateutil>=2.8.2
+Pillow>=10.0.0
+# legacy (kept for compatibility; may be removed later)
+streamlit>=1.30.0
+plotly>=5.18.0

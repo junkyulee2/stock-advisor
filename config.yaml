@@ -1,0 +1,226 @@
+# Stock Advisor Configuration
+# Strategy: Momentum x Supply-Demand + Quality Guard
+
+universe:
+  markets: [KOSPI, KOSDAQ]
+  top_n_by_market_cap: 500
+
+  # Pre-filters (exclude before scoring)
+  filters:
+    min_avg_trading_value_krw: 3_000_000_000   # 30억원 일평균 거래대금
+    max_debt_ratio: 200                          # 부채비율 200% 이하
+    require_positive_net_income: true           # 최근 4분기 흑자
+    exclude_admin_issues: true                   # 관리종목 제외
+    exclude_recent_earnings_days: 3              # 실적발표 전후 3일 제외
+
+# Factor weights (sum to 100)
+scoring:
+  factors:
+    momentum:       40
+    supply_demand:  30
+    quality:        20
+    mean_reversion: 10
+
+  # Absolute thresholds for each factor (linear interpolation between points).
+  # Values are sorted by `value` asc; between points the score is interpolated.
+  # Values OUTSIDE the range clamp to the nearest score.
+  absolute_thresholds:
+    momentum:
+      # 20-day return relative to KOSPI (fraction, e.g. 0.08 = +8%)
+      rel_return_20d:
+        - {value:  0.12, score: 95}
+        - {value:  0.08, score: 85}
+        - {value:  0.04, score: 70}
+        - {value:  0.00, score: 50}
+        - {value: -0.05, score: 25}
+        - {value: -0.10, score: 5}
+      rel_return_60d:
+        - {value:  0.20, score: 95}
+        - {value:  0.12, score: 85}
+        - {value:  0.06, score: 70}
+        - {value:  0.00, score: 50}
+        - {value: -0.08, score: 25}
+        - {value: -0.15, score: 5}
+      rel_return_5d:
+        - {value:  0.06, score: 95}
+        - {value:  0.04, score: 85}
+        - {value:  0.02, score: 70}
+        - {value:  0.00, score: 50}
+        - {value: -0.03, score: 25}
+        - {value: -0.06, score: 5}
+
+    supply_demand:
+      # 5-day cumulative foreign net-buy KRW / market_cap
+      foreign_5d_ratio:
+        - {value:  0.006, score: 95}
+        - {value:  0.003, score: 85}
+        - {value:  0.001, score: 70}
+        - {value:  0.000, score: 50}
+        - {value: -0.002, score: 25}
+        - {value: -0.005, score: 5}
+      # 5-day cumulative institution net-buy KRW / market_cap
+      institution_5d_ratio:
+        - {value:  0.004, score: 95}
+        - {value:  0.002, score: 85}
+        - {value:  0.0008, score: 70}
+        - {value:  0.000, score: 50}
+        - {value: -0.0015, score: 25}
+        - {value: -0.004, score: 5}
+      # consecutive foreign net-buy days (0..5)
+      foreign_consecutive:
+        - {value: 5, score: 95}
+        - {value: 4, score: 85}
+        - {value: 3, score: 70}
+        - {value: 2, score: 55}
+        - {value: 1, score: 40}
+        - {value: 0, score: 30}
+
+    quality:
+      # Earnings yield = 1/PER (e.g. 0.10 = 10% earnings yield = PER 10)
+      earnings_yield:
+        - {value: 0.15, score: 95}
+        - {value: 0.10, score: 85}
+        - {value: 0.07, score: 70}
+        - {value: 0.05, score: 50}
+        - {value: 0.03, score: 25}
+        - {value: 0.00, score: 5}
+      # ROE proxy = EPS / BPS
+      roe_proxy:
+        - {value: 0.20, score: 95}
+        - {value: 0.12, score: 85}
+        - {value: 0.08, score: 70}
+        - {value: 0.05, score: 50}
+        - {value: 0.00, score: 25}
+      # PBR inverse (1/PBR; higher = cheaper)
+      pbr_inv:
+        - {value: 2.0, score: 95}
+        - {value: 1.2, score: 85}
+        - {value: 0.8, score: 70}
+        - {value: 0.5, score: 50}
+        - {value: 0.2, score: 25}
+
+    mean_reversion:
+      # RSI oversold: lower RSI when in rebound = higher score
+      rsi_when_rebounding:
+        - {value: 20, score: 95}
+        - {value: 25, score: 85}
+        - {value: 30, score: 70}
+        - {value: 35, score: 55}
+        - {value: 40, score: 30}
+        - {value: 50, score: 0}   # not oversold -> no signal
+      # BB lower-band bounce: binary signal (0 or 1); applied separately
+
+  # "Top of day" bonus — keeps system usable in ordinary markets
+  top_of_day_bonus:
+    enabled: true
+    min_base_score: 70    # only boost stocks already reasonably strong
+    max_bonus: 10          # +10 points for today's top
+    top_percentile: 0.01   # top 1% of base scores get full bonus
+    secondary_percentile: 0.03  # top 3% get half bonus
+
+  momentum:
+    # Relative strength vs KOSPI (percentile within universe)
+    return_20d_weight: 50   # 20-day relative return
+    return_60d_weight: 30   # 60-day relative return
+    return_5d_weight:  20   # 5-day short-term momentum
+
+  supply_demand:
+    foreign_5d_weight:     40   # Foreign 5-day net buy (KRW)
+    institution_5d_weight: 30   # Institution 5-day net buy (KRW)
+    foreign_consecutive:   15   # Consecutive buy days (max 5)
+    short_ratio_weight:    15   # Low short ratio is positive
+
+  quality:
+    roe_weight:            40   # Higher ROE better (sector percentile)
+    earnings_yield_weight: 30   # EPS/Price (sector percentile)
+    debt_ratio_weight:     20   # Lower debt better
+    op_margin_weight:      10   # Operating margin
+
+  mean_reversion:
+    # Only applies when signal is present; otherwise 0
+    rsi_oversold_weight:   60   # RSI < 35 with upturn
+    bb_lower_touch_weight: 40   # Bollinger lower band touched+recovered
+
+# Investment sizing by total score
+investment_rules:
+  - min_score: 95
+    amount_krw: 300000
+  - min_score: 90
+    amount_krw: 200000
+  - min_score: 85
+    amount_krw: 100000
+
+portfolio_limits:
+  max_concurrent_positions: 5
+  max_per_sector: 2
+  min_score_to_buy: 85
+
+# Exit rules (in priority order)
+sell_rules:
+  # Hard rules (ALWAYS trigger, 100% sell)
+  hard_stop_loss_pct: -15
+  hard_take_profit_partial_pct: 20   # Sell 50% at +20%
+  hard_take_profit_partial_ratio: 0.5
+  time_stop_days: 20                  # Exit after 20 trading days
+
+  # Soft rules (50% sell on first trigger, 100% on stage2)
+  trailing_stop_pct: -8               # From highest since entry
+  sell_score_stage1: 60               # Sell 50% if sell_score >= 60
+  sell_score_stage2: 80               # Sell 100% if sell_score >= 80
+
+# Sell score weights (higher = more bearish)
+sell_scoring:
+  momentum_reversal:   35   # 20d return turning negative, below 20MA
+  supply_deterioration: 30  # Foreign net sell 2-3d consecutive
+  technical_breakdown: 20   # MA5 break + volume expand
+  news_negative:       15   # Negative news sentiment
+
+# Backtest requirements (before live trading)
+backtest:
+  start_date: "2020-01-01"
+  end_date: "2025-12-31"
+  initial_capital_krw: 1000000
+  transaction_cost_pct: 0.3   # Round-trip 0.3%
+  slippage_pct: 0.1
+  benchmark: "KOSPI"
+  # Required to pass before live:
+  pass_criteria:
+    min_alpha_vs_benchmark: 3.0   # 3%p annual alpha
+    max_drawdown_pct: 15
+    min_sharpe_ratio: 0.8
+    min_win_rate: 0.50
+
+# Market regime detection
+regime:
+  enabled: true
+  lookback_days: 60
+  # Use KOSPI 200MA and 20MA slope
+  bull:
+    kospi_above_200ma: true
+    kospi_20ma_slope_positive: true
+    weights_override:
+      momentum: 50
+      supply_demand: 25
+      quality: 15
+      mean_reversion: 10
+  bear:
+    kospi_below_200ma: true
+    weights_override:
+      momentum: 15
+      supply_demand: 25
+      quality: 40
+      mean_reversion: 20
+  # Sideways uses default weights
+
+# Notification
+notify:
+  discord_webhook_env: DISCORD_WEBHOOK_URL
+  morning_recommend_time: "08:55"
+  sell_check_times: ["09:30", "11:30", "13:30", "15:00"]
+
+# Paths
+paths:
+  scores_dir: data/scores
+  portfolio: data/portfolio.json
+  history: data/history.json
+  backtest_results: data/backtest

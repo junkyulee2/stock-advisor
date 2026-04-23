@@ -431,7 +431,102 @@ with tab_rec:
                 unsafe_allow_html=True,
             )
 
-            top = df[df["total_score"] >= min_score].head(10) if n85 else df.head(5)
+            top = df[df["total_score"] >= min_score].head(10) if n85 else df.head(10)
+
+            # ========= Charts (2-column) =========
+            chart_col1, chart_col2 = st.columns([1, 1])
+
+            # -- Score distribution histogram --
+            with chart_col1:
+                st.markdown(
+                    '<div class="small-label" style="margin:6px 0 4px;">점수 분포 (전체 유니버스)</div>',
+                    unsafe_allow_html=True,
+                )
+                fig_dist = go.Figure()
+                fig_dist.add_trace(go.Histogram(
+                    x=df["total_score"],
+                    nbinsx=30,
+                    marker=dict(color="#3b82f6", line=dict(width=0)),
+                    opacity=0.85,
+                    name="종목",
+                ))
+                # threshold lines
+                for thr, label, color in [
+                    (85, "85 추천", "#22c55e"),
+                    (90, "90 강추", "#fbbf24"),
+                    (95, "95 최강", "#ef4444"),
+                ]:
+                    fig_dist.add_vline(
+                        x=thr, line=dict(color=color, width=1.5, dash="dash"),
+                        annotation_text=label, annotation_position="top",
+                        annotation_font_size=10, annotation_font_color=color,
+                    )
+                fig_dist.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor="#111c33", plot_bgcolor="#111c33",
+                    font=dict(color="#e5edff", family="Segoe UI", size=11),
+                    margin=dict(l=40, r=20, t=30, b=36),
+                    height=270,
+                    bargap=0.05,
+                    showlegend=False,
+                    xaxis=dict(title="총점", range=[0, 100],
+                               gridcolor="#1b2744", zeroline=False),
+                    yaxis=dict(title="종목 수", gridcolor="#1b2744",
+                               zeroline=False),
+                )
+                st.plotly_chart(fig_dist, use_container_width=True, theme=None)
+
+            # -- Top 10 factor stack --
+            with chart_col2:
+                st.markdown(
+                    '<div class="small-label" style="margin:6px 0 4px;">상위 10종목 팩터 구성</div>',
+                    unsafe_allow_html=True,
+                )
+                top10 = df.head(10).copy().iloc[::-1]  # bottom-up for horizontal bars
+                fig_stack = go.Figure()
+                weights = CONFIG["scoring"]["factors"]
+                factor_cols = [
+                    ("mean_reversion_score", "역추세", "#fbbf24",
+                     weights["mean_reversion"]),
+                    ("quality_score",        "퀄리티", "#a855f7",
+                     weights["quality"]),
+                    ("supply_demand_score",  "수급",   "#3b82f6",
+                     weights["supply_demand"]),
+                    ("momentum_score",       "모멘텀", "#22c55e",
+                     weights["momentum"]),
+                ]
+                for col, name, color, w in factor_cols:
+                    if col not in top10.columns:
+                        continue
+                    contrib = top10[col] * w / 100.0
+                    fig_stack.add_trace(go.Bar(
+                        y=top10["name"],
+                        x=contrib,
+                        orientation="h",
+                        name=name,
+                        marker=dict(color=color),
+                        hovertemplate=(f"{name}: %{{customdata:.1f}}점 × {w}%<br>"
+                                       "기여도: %{x:.1f}<extra></extra>"),
+                        customdata=top10[col],
+                    ))
+                fig_stack.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor="#111c33", plot_bgcolor="#111c33",
+                    font=dict(color="#e5edff", family="Segoe UI", size=11),
+                    margin=dict(l=130, r=20, t=30, b=36),
+                    height=270,
+                    barmode="stack",
+                    showlegend=True,
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.4,
+                                xanchor="center", x=0.5, font=dict(size=10)),
+                    xaxis=dict(title="가중 기여 점수", gridcolor="#1b2744",
+                               zeroline=False, range=[0, 100]),
+                    yaxis=dict(gridcolor="#1b2744", zeroline=False),
+                )
+                st.plotly_chart(fig_stack, use_container_width=True, theme=None)
+
+            st.write("")  # spacing
+
             if top.empty:
                 st.info("추천 대상이 없습니다.")
             else:
@@ -573,32 +668,52 @@ with tab_hist:
 
         st.write("")
 
-        # ---- Trade rows (custom HTML — brokerage-style) ----
-        # Order: newest first
+        # ---- Trade rows (custom HTML, brokerage-style) ----
+        # Streamlit's markdown treats 4+ leading spaces as a code block, so
+        # build HTML on SINGLE LINES with no leading whitespace.
         def _trade_time(t):
             return t.get("exit_date") or t.get("entry_date") or ""
         trades_sorted = sorted(trades, key=_trade_time, reverse=True)
 
-        table_html = """
-        <div style="background:#111c33; border:1px solid #1b2744; border-radius:12px; overflow:hidden;">
-          <div style="display:grid;
-                      grid-template-columns: 110px 90px 1fr 90px 100px 110px 100px 100px 1fr;
-                      padding:11px 16px;
-                      background:#0f172a;
-                      border-bottom:1px solid #22324f;
-                      font-size:10.5px; font-weight:700; letter-spacing:0.6px;
-                      color:#9aa8c7; text-transform:uppercase;">
-            <div>날짜</div>
-            <div>구분</div>
-            <div>종목</div>
-            <div style="text-align:right;">수량</div>
-            <div style="text-align:right;">단가</div>
-            <div style="text-align:right;">금액</div>
-            <div style="text-align:right;">수익률</div>
-            <div style="text-align:right;">손익</div>
-            <div>사유</div>
-          </div>
-        """
+        GRID_COLS = "110px 90px 1fr 90px 100px 110px 100px 100px 1fr"
+        HEAD_STYLE = (
+            f"display:grid;grid-template-columns:{GRID_COLS};"
+            "padding:11px 16px;background:#0f172a;"
+            "border-bottom:1px solid #22324f;"
+            "font-size:10.5px;font-weight:700;letter-spacing:0.6px;"
+            "color:#9aa8c7;text-transform:uppercase;"
+        )
+        ROW_STYLE = (
+            f"display:grid;grid-template-columns:{GRID_COLS};"
+            "padding:12px 16px;border-bottom:1px solid #1b2744;"
+            "font-size:12.5px;align-items:center;"
+            "font-variant-numeric:tabular-nums;"
+        )
+
+        html_parts = [
+            '<div style="background:#111c33;border:1px solid #1b2744;border-radius:12px;overflow:hidden;">',
+            f'<div style="{HEAD_STYLE}">',
+            '<div>날짜</div><div>구분</div><div>종목</div>',
+            '<div style="text-align:right;">수량</div>',
+            '<div style="text-align:right;">단가</div>',
+            '<div style="text-align:right;">금액</div>',
+            '<div style="text-align:right;">수익률</div>',
+            '<div style="text-align:right;">손익</div>',
+            '<div>사유</div></div>',
+        ]
+
+        KOREAN_REASONS = {
+            "hard_stop_loss": "하드 손절",
+            "time_stop": "타임 스톱",
+            "take_profit_partial": "부분 익절",
+            "trailing_stop": "트레일링 스톱",
+            "sell_score_stage2": "매도점수 80+",
+            "sell_score_stage1": "매도점수 60+",
+            "manual": "수동",
+            "momentum_reversal": "모멘텀 반전",
+            "foreign_sell": "외국인 순매도",
+            "ma5_break": "MA5 이탈",
+        }
 
         for t in trades_sorted:
             action = t.get("action", "")
@@ -609,74 +724,59 @@ with tab_hist:
             price = float(t.get("price", 0) or 0)
             pnl_pct = t.get("pnl_pct", None)
             pnl_krw = t.get("pnl_krw", None)
-            reason = t.get("reason", "")
+            reason = t.get("reason", "") or ""
 
-            # Total amount (cost or proceeds)
             if action == "buy":
                 total_amt = t.get("cost_krw", qty * price)
-                pill_cls = "pill-blue"
-                pill_text = "매수"
+                pill_cls, pill_text = "pill-blue", "매수"
                 pnl_cell = '<span style="color:#6b7a9c;">–</span>'
                 profit_cell = '<span style="color:#6b7a9c;">–</span>'
-                reason_display = f'진입점수 {t.get("entry_score", 0):.1f}' if "entry_score" in t else ""
-            else:  # sell
+                reason_display = (
+                    f'진입점수 {t.get("entry_score", 0):.1f}'
+                    if "entry_score" in t else ""
+                )
+            else:
                 total_amt = t.get("proceeds_krw", qty * price)
                 pill_cls = "pill-green" if (pnl_krw or 0) >= 0 else "pill-red"
                 pill_text = "매도"
                 if pnl_pct is not None:
-                    pct_color = "#22c55e" if pnl_pct >= 0 else "#ef4444"
-                    sign = "+" if pnl_pct >= 0 else ""
-                    pnl_cell = f'<span style="color:{pct_color}; font-weight:700;">{sign}{pnl_pct:.2f}%</span>'
+                    c = "#22c55e" if pnl_pct >= 0 else "#ef4444"
+                    s = "+" if pnl_pct >= 0 else ""
+                    pnl_cell = f'<span style="color:{c};font-weight:700;">{s}{pnl_pct:.2f}%</span>'
                 else:
                     pnl_cell = '–'
                 if pnl_krw is not None:
-                    kw_color = "#22c55e" if pnl_krw >= 0 else "#ef4444"
-                    sign = "+" if pnl_krw >= 0 else ""
-                    profit_cell = f'<span style="color:{kw_color}; font-weight:700;">{sign}{pnl_krw:,.0f}원</span>'
+                    c = "#22c55e" if pnl_krw >= 0 else "#ef4444"
+                    s = "+" if pnl_krw >= 0 else ""
+                    profit_cell = f'<span style="color:{c};font-weight:700;">{s}{pnl_krw:,.0f}원</span>'
                 else:
                     profit_cell = '–'
                 reason_display = reason or "-"
 
-            # Korean-ize common internal reason codes
-            if isinstance(reason_display, str):
-                reason_display = (
-                    reason_display
-                    .replace("hard_stop_loss", "하드 손절")
-                    .replace("time_stop", "타임 스톱")
-                    .replace("take_profit_partial", "부분 익절")
-                    .replace("trailing_stop", "트레일링 스톱")
-                    .replace("sell_score_stage2", "매도점수 ≥80")
-                    .replace("sell_score_stage1", "매도점수 ≥60")
-                    .replace("manual", "수동")
-                    .replace("momentum_reversal", "모멘텀 반전")
-                    .replace("foreign_sell", "외국인 순매도")
-                    .replace("ma5_break", "MA5 이탈")
-                )
+            for eng, kor in KOREAN_REASONS.items():
+                reason_display = reason_display.replace(eng, kor)
 
-            table_html += f"""
-            <div style="display:grid;
-                        grid-template-columns: 110px 90px 1fr 90px 100px 110px 100px 100px 1fr;
-                        padding:12px 16px;
-                        border-bottom:1px solid #1b2744;
-                        font-size:12.5px; align-items:center;
-                        font-variant-numeric: tabular-nums;">
-              <div style="color:#9aa8c7; font-family:Consolas,monospace;">{date}</div>
-              <div><span class="pill {pill_cls}">{pill_text}</span></div>
-              <div>
-                <div style="color:#f0f5ff; font-weight:700;">{name}</div>
-                <div style="color:#6b7a9c; font-size:10.5px; font-family:Consolas,monospace;">{ticker}</div>
-              </div>
-              <div style="text-align:right; color:#e5edff;">{qty:,}주</div>
-              <div style="text-align:right; color:#e5edff;">₩{price:,.0f}</div>
-              <div style="text-align:right; color:#f0f5ff; font-weight:700;">₩{total_amt:,.0f}</div>
-              <div style="text-align:right;">{pnl_cell}</div>
-              <div style="text-align:right;">{profit_cell}</div>
-              <div style="color:#9aa8c7; font-size:11.5px;">{reason_display}</div>
-            </div>
-            """
+            # Build row as single line (no indentation!)
+            row = (
+                f'<div style="{ROW_STYLE}">'
+                f'<div style="color:#9aa8c7;font-family:Consolas,monospace;">{date}</div>'
+                f'<div><span class="pill {pill_cls}">{pill_text}</span></div>'
+                f'<div>'
+                f'<div style="color:#f0f5ff;font-weight:700;">{name}</div>'
+                f'<div style="color:#6b7a9c;font-size:10.5px;font-family:Consolas,monospace;">{ticker}</div>'
+                f'</div>'
+                f'<div style="text-align:right;color:#e5edff;">{qty:,}주</div>'
+                f'<div style="text-align:right;color:#e5edff;">₩{price:,.0f}</div>'
+                f'<div style="text-align:right;color:#f0f5ff;font-weight:700;">₩{total_amt:,.0f}</div>'
+                f'<div style="text-align:right;">{pnl_cell}</div>'
+                f'<div style="text-align:right;">{profit_cell}</div>'
+                f'<div style="color:#9aa8c7;font-size:11.5px;">{reason_display}</div>'
+                f'</div>'
+            )
+            html_parts.append(row)
 
-        table_html += "</div>"
-        st.markdown(table_html, unsafe_allow_html=True)
+        html_parts.append('</div>')
+        st.markdown("".join(html_parts), unsafe_allow_html=True)
 
 
 # === Performance ===

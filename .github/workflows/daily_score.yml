@@ -2,35 +2,48 @@ name: Daily Scores and Signals
 
 on:
   schedule:
-    # KST 18:30 = UTC 09:30 (after market close)
+    # KST 18:30 (after market close) = UTC 09:30
     - cron: '30 9 * * 1-5'
-    # KST 09:30 / 11:30 / 13:30 / 15:10 for intraday sell checks
-    - cron: '30 0,2,4 * * 1-5'
+    # KST 09:30 / 11:30 / 13:30 intraday sell-signal checks
+    - cron: '30 0 * * 1-5'
+    - cron: '30 2 * * 1-5'
+    - cron: '30 4 * * 1-5'
+    # KST 15:10 post-close snapshot
     - cron: '10 6 * * 1-5'
   workflow_dispatch: {}
+
+permissions:
+  contents: write   # required to commit data/ back
 
 jobs:
   score:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
           cache: 'pip'
 
-      - run: pip install -r requirements.txt
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Determine mode
+      - name: Determine mode (time-of-day)
         id: mode
         run: |
           HOUR_UTC=$(date -u +%H)
-          if [ "$HOUR_UTC" -ge 9 ]; then
-            echo "mode=both" >> $GITHUB_OUTPUT
+          if [ "$HOUR_UTC" -eq 9 ] || [ "$HOUR_UTC" -eq 6 ]; then
+            echo "mode=scores" >> $GITHUB_OUTPUT
           else
             echo "mode=signals" >> $GITHUB_OUTPUT
           fi
+          echo "Selected mode: $(cat $GITHUB_OUTPUT)"
 
       - name: Run pipeline
         env:
@@ -42,5 +55,9 @@ jobs:
           git config user.name "stock-bot"
           git config user.email "bot@users.noreply.github.com"
           git add data/
-          git diff --cached --quiet || git commit -m "chore: update data [$(date -u +%Y-%m-%dT%H:%MZ)]"
-          git push
+          if git diff --cached --quiet; then
+            echo "no data changes to commit"
+          else
+            git commit -m "chore(bot): update data [${{ steps.mode.outputs.mode }}] $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi

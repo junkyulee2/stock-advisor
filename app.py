@@ -22,9 +22,9 @@ st.markdown(
     """
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="춘큐 스탁">
-    <meta name="theme-color" content="#0b1222">
+    <meta name="theme-color" content="#FAF9F6">
     <meta name="mobile-web-app-capable" content="yes">
     """,
     unsafe_allow_html=True,
@@ -72,6 +72,44 @@ def fetch_current_prices(tickers: tuple[str, ...]) -> dict[str, float]:
         except Exception:
             pass
     return out
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_price_history_df(tickers: tuple[str, ...], days: int = 5) -> pd.DataFrame:
+    """Last `days` trading-day closes for each ticker. Columns=tickers, index=date."""
+    if not tickers:
+        return pd.DataFrame()
+    import FinanceDataReader as fdr
+    today_s = datetime.now().strftime("%Y-%m-%d")
+    start_s = (datetime.now() - timedelta(days=days * 3 + 5)).strftime("%Y-%m-%d")
+    series: dict[str, pd.Series] = {}
+    for t in tickers:
+        try:
+            df = fdr.DataReader(t, start_s, today_s)
+            if not df.empty:
+                series[t] = df["Close"]
+        except Exception:
+            pass
+    if not series:
+        return pd.DataFrame()
+    return pd.DataFrame(series).dropna(how="all").tail(days)
+
+
+def portfolio_pl_series(portfolio: dict, hist: pd.DataFrame) -> list[tuple[str, float]]:
+    """Daily total unrealized P/L (KRW) for current holdings over hist rows."""
+    if hist.empty or not portfolio.get("positions"):
+        return []
+    result: list[tuple[str, float]] = []
+    positions = portfolio["positions"]
+    for idx, row in hist.iterrows():
+        pl = 0.0
+        for tk, close in row.items():
+            if pd.isna(close) or tk not in positions:
+                continue
+            p = positions[tk]
+            pl += (float(close) - p["entry_price"]) * p["qty"]
+        result.append((idx.strftime("%m-%d"), pl))
+    return result
 
 
 # ============================================================
@@ -133,125 +171,204 @@ def inject_css():
     st.markdown(
         """
         <style>
-        .stApp { background:#0b1222; color:#e5edff; }
-        .block-container { max-width:1400px; padding-top:1.2rem !important; padding-bottom:2rem !important; }
+        /* ======= PASTEL LIGHT THEME (Design 1: B+E mix) ======= */
+        .stApp { background:#FAF9F6; color:#1a1a1a; }
+        .block-container { max-width:1200px; padding-top:1rem !important; padding-bottom:2rem !important; }
         #MainMenu, footer, header { visibility:hidden; }
         .stDeployButton { display:none; }
-        .hero { background:linear-gradient(135deg,#0f172a 0%,#111c33 50%,#0b1222 100%);
-                border:1px solid #22324f; border-radius:14px; padding:20px 26px;
-                margin-bottom:18px; display:flex; align-items:center; gap:18px; }
-        .hero-icon { width:54px; height:54px; border-radius:12px;
-                     background:radial-gradient(circle at 30% 30%,#1e293b,#060b18);
-                     display:flex; align-items:center; justify-content:center;
-                     font-size:28px; border:1px solid #22324f; }
-        .hero-title { font-size:22px; font-weight:800; color:#f0f5ff; letter-spacing:-0.5px; margin:0; }
-        .hero-sub { font-size:12px; color:#9aa8c7; margin-top:2px; letter-spacing:0.2px; }
-        .hero-right { margin-left:auto; text-align:right; }
-        .hero-stamp { font-family:"Consolas",monospace; color:#9aa8c7; font-size:11px; }
-        .kpi { background:#111c33; border:1px solid #1b2744; border-radius:12px;
-               padding:14px 18px; height:100%; }
-        .kpi:hover { border-color:#22324f; }
-        .kpi-label { font-size:10.5px; color:#6b7a9c; letter-spacing:0.9px;
-                     font-weight:700; text-transform:uppercase; }
-        .kpi-value { font-size:24px; font-weight:800; margin-top:4px;
-                     color:#f0f5ff; font-variant-numeric:tabular-nums; }
-        .kpi-green { color:#22c55e !important; }
-        .kpi-red { color:#ef4444 !important; }
-        .kpi-gold { color:#fbbf24 !important; }
-        .kpi-blue { color:#3b82f6 !important; }
-        .kpi-hint { font-size:10.5px; color:#6b7a9c; margin-top:2px; }
-        .stock-card { background:#111c33; border:1px solid #1b2744; border-radius:12px;
-                      padding:16px 20px; margin-bottom:10px;
-                      transition:border-color .15s,transform .15s; }
-        .stock-card:hover { border-color:#3b82f6; transform:translateY(-1px); }
-        .stock-name { font-size:16px; font-weight:700; color:#f0f5ff; }
-        .stock-ticker { font-family:"Consolas",monospace; font-size:11px; color:#9aa8c7; }
-        .big-score { font-size:32px; font-weight:900; color:#fbbf24;
-                     font-variant-numeric:tabular-nums; line-height:1; }
-        .small-label { font-size:10px; color:#6b7a9c; text-transform:uppercase;
-                       letter-spacing:0.8px; font-weight:700; }
-        .factor-row { display:flex; align-items:center; gap:8px; margin:3px 0; font-size:11.5px; }
-        .factor-name { width:48px; color:#9aa8c7; }
-        .factor-bar { flex:1; height:5px; background:#1b2744; border-radius:3px; overflow:hidden; }
-        .factor-fill { height:100%; border-radius:3px; }
-        .factor-val { width:28px; text-align:right; color:#f0f5ff;
-                      font-weight:700; font-variant-numeric:tabular-nums; }
-        .pill { display:inline-block; padding:3px 10px; border-radius:999px;
-                font-size:10.5px; font-weight:700; letter-spacing:0.3px; }
-        .pill-green { background:rgba(34,197,94,0.15); color:#22c55e;
-                      border:1px solid rgba(34,197,94,0.35); }
-        .pill-red { background:rgba(239,68,68,0.15); color:#ef4444;
-                    border:1px solid rgba(239,68,68,0.35); }
-        .pill-blue { background:rgba(59,130,246,0.15); color:#3b82f6;
-                     border:1px solid rgba(59,130,246,0.35); }
-        .pill-gray { background:rgba(107,122,156,0.15); color:#9aa8c7;
-                     border:1px solid rgba(107,122,156,0.35); }
-        .pill-gold { background:rgba(251,191,36,0.15); color:#fbbf24;
-                     border:1px solid rgba(251,191,36,0.35); }
-        .stTabs [data-baseweb="tab-list"] { gap:2px; background:transparent;
-                                            border-bottom:1px solid #1b2744; }
-        .stTabs [data-baseweb="tab"] { background:transparent; color:#9aa8c7;
-                                       font-weight:600; padding:10px 18px;
-                                       border-radius:8px 8px 0 0; }
-        .stTabs [aria-selected="true"] { background:#111c33; color:#f0f5ff;
-                                          border:1px solid #22324f;
-                                          border-bottom-color:#111c33; }
-        .empty-panel { background:#111c33; border:1px dashed #22324f;
-                       border-radius:12px; padding:40px; text-align:center; color:#9aa8c7; }
-        .empty-emoji { font-size:34px; margin-bottom:6px; }
-        /* Streamlit button pro style */
-        div[data-testid="stButton"] > button,
-        div[data-testid="stFormSubmitButton"] > button {
-            background:#1c2a4d; color:#e5edff;
-            border:1px solid #22324f; border-radius:6px; font-weight:600;
-        }
-        div[data-testid="stButton"] > button:hover { border-color:#3b82f6; }
-        div[data-testid="stFormSubmitButton"] > button {
-            background:#22c55e; color:#031608; border:none;
-        }
-        div[data-testid="stFormSubmitButton"] > button:hover { background:#2fd46a; }
 
-        /* Overflow safety */
+        /* ---- Top bar: logo + streak ---- */
+        .topbar { display:flex; justify-content:space-between; align-items:center;
+                  margin-bottom:12px; }
+        .brand { font-size:18px; font-weight:800; color:#1a1a1a; letter-spacing:-0.3px; }
+        .streak-pill { background:#FFE4A3; padding:6px 12px; border-radius:999px;
+                       font-size:11.5px; font-weight:800; color:#7A4F00;
+                       box-shadow:0 2px 0 #E8C876; }
+
+        /* ---- Hero (mint + P/L + chart) ---- */
+        .hero { background:#C9F0D2; border-radius:22px;
+                padding:18px 20px 10px; margin-bottom:10px;
+                box-shadow:0 4px 0 #A8D9B3; }
+        .hero-label { font-size:11px; font-weight:800; color:#0F7B0F;
+                      letter-spacing:1px; }
+        .hero-big { font-size:38px; font-weight:900; color:#0F7B0F;
+                    margin-top:4px; letter-spacing:-1.5px; line-height:1; }
+        .hero-big.down { color:#CC2222; }
+        .hero-pct { font-size:14px; font-weight:800; color:#0F7B0F; margin-top:4px; }
+        .hero-pct.down { color:#CC2222; }
+        .hero-hint { font-size:11px; font-weight:700; color:rgba(15,123,15,0.7);
+                     margin-top:4px; }
+        .hero-hint.down { color:rgba(204,34,34,0.75); }
+        .hero-chart { height:72px; margin:6px -6px 0; }
+        .hero-chart svg { width:100%; height:100%; overflow:visible; }
+        .hero-xlabels { display:flex; justify-content:space-between;
+                        font-size:9px; font-weight:700; color:#0F7B0F;
+                        opacity:0.55; padding:0 2px; }
+        .hero-xlabels.down { color:#CC2222; }
+
+        /* ---- KPI mini cards (peach / lavender) ---- */
+        .kpi { border-radius:18px; padding:14px 16px; height:100%;
+               box-shadow:0 3px 0 rgba(0,0,0,0.08); }
+        .kpi.peach { background:#FFD9C0; }
+        .kpi.peach .kpi-value { color:#A84F00; }
+        .kpi.lav { background:#DDD3F5; }
+        .kpi.lav .kpi-value { color:#4C2F9E; }
+        .kpi.blueish { background:#CFE3FF; }
+        .kpi.blueish .kpi-value { color:#1E4CA3; }
+        .kpi.mint { background:#C9F0D2; }
+        .kpi.mint .kpi-value { color:#0F7B0F; }
+        .kpi-label { font-size:10px; font-weight:800; letter-spacing:1px;
+                     opacity:0.7; text-transform:uppercase; }
+        .kpi-value { font-size:22px; font-weight:900; margin-top:4px;
+                     letter-spacing:-0.5px; font-variant-numeric:tabular-nums; }
+        .kpi-hint { font-size:10px; opacity:0.65; margin-top:3px; font-weight:700; }
+        .kpi-green { color:#0F7B0F !important; }
+        .kpi-red { color:#CC2222 !important; }
+        .kpi-gold { color:#B45309 !important; }
+        .kpi-blue { color:#1E4CA3 !important; }
+
+        /* ---- Badges row ---- */
+        .badges-row { display:flex; gap:8px; margin:4px 0 14px; }
+        .badge { flex:1; background:#fff; border-radius:14px;
+                 padding:10px 6px; text-align:center;
+                 box-shadow:0 2px 0 #E4E4E4; }
+        .badge .ic { font-size:20px; line-height:1; }
+        .badge .t { font-size:10px; font-weight:800; color:#555; margin-top:4px; }
+        .badge.lock { opacity:0.35; }
+
+        /* ---- Stock cards (white on cream) ---- */
+        .stock-card { background:#fff; border-radius:18px;
+                      padding:16px 18px; margin-bottom:10px;
+                      box-shadow:0 2px 0 rgba(0,0,0,0.04),
+                                 0 0 0 1px rgba(0,0,0,0.04);
+                      transition:transform .15s, box-shadow .15s; }
+        .stock-card:hover { transform:translateY(-1px);
+                            box-shadow:0 4px 0 rgba(49,130,246,0.12),
+                                       0 0 0 1.5px rgba(49,130,246,0.25); }
+        .stock-card.held { box-shadow:0 2px 0 rgba(49,130,246,0.15),
+                                      0 0 0 1.5px rgba(49,130,246,0.4); }
+        .stock-name { font-size:15px; font-weight:800; color:#1a1a1a; letter-spacing:-0.2px; }
+        .stock-ticker { font-size:11px; color:#8a8a8a; font-weight:600; margin-top:2px;
+                        font-variant-numeric:tabular-nums; }
+        .big-score { font-size:28px; font-weight:900; color:#EAB308;
+                     font-variant-numeric:tabular-nums; line-height:1; letter-spacing:-0.8px; }
+        .small-label { font-size:9.5px; color:#8a8a8a; text-transform:uppercase;
+                       letter-spacing:1px; font-weight:800; }
+
+        /* ---- Factor bars ---- */
+        .factor-row { display:flex; align-items:center; gap:8px; margin:3px 0; font-size:11px; }
+        .factor-name { width:44px; color:#8a8a8a; font-weight:600; }
+        .factor-bar { flex:1; height:4px; background:#F0F0F0; border-radius:2px; overflow:hidden; }
+        .factor-fill { height:100%; border-radius:2px; }
+        .factor-val { width:26px; text-align:right; color:#1a1a1a;
+                      font-weight:700; font-variant-numeric:tabular-nums; }
+
+        /* ---- Pills ---- */
+        .pill { display:inline-block; padding:3px 10px; border-radius:999px;
+                font-size:10.5px; font-weight:800; letter-spacing:0.2px; }
+        .pill-green { background:rgba(15,123,15,0.12); color:#0F7B0F;
+                      border:1px solid rgba(15,123,15,0.25); }
+        .pill-red { background:rgba(204,34,34,0.1); color:#CC2222;
+                    border:1px solid rgba(204,34,34,0.25); }
+        .pill-blue { background:rgba(49,130,246,0.1); color:#3182F6;
+                     border:1px solid rgba(49,130,246,0.3); }
+        .pill-gray { background:#F0F0F0; color:#6b6b6b;
+                     border:1px solid #E0E0E0; }
+        .pill-gold { background:rgba(234,179,8,0.12); color:#B45309;
+                     border:1px solid rgba(234,179,8,0.3); }
+
+        /* ---- Tabs ---- */
+        .stTabs [data-baseweb="tab-list"] { gap:4px; background:transparent;
+                                            border-bottom:1px solid #E5E5E5; }
+        .stTabs [data-baseweb="tab"] { background:transparent; color:#8a8a8a;
+                                       font-weight:700; padding:10px 16px;
+                                       border-radius:10px 10px 0 0; font-size:13px; }
+        .stTabs [aria-selected="true"] { background:#fff; color:#1a1a1a;
+                                          border:1px solid #E5E5E5;
+                                          border-bottom-color:#fff; }
+
+        /* ---- Empty panels ---- */
+        .empty-panel { background:#fff; border:1px dashed #D0D0D0;
+                       border-radius:18px; padding:32px 20px;
+                       text-align:center; color:#6b6b6b;
+                       box-shadow:0 2px 0 rgba(0,0,0,0.03); }
+        .empty-emoji { font-size:34px; margin-bottom:8px; }
+
+        /* ---- Buttons (3D lifted style) ---- */
+        div[data-testid="stButton"] > button {
+            background:#fff; color:#1a1a1a;
+            border:1px solid #E0E0E0; border-radius:12px;
+            font-weight:800; padding:8px 16px;
+            box-shadow:0 2px 0 #E4E4E4;
+            transition:transform .1s, box-shadow .1s;
+        }
+        div[data-testid="stButton"] > button:hover {
+            border-color:#3182F6; color:#3182F6;
+        }
+        div[data-testid="stButton"] > button:active {
+            transform:translateY(2px);
+            box-shadow:0 0 0 #E4E4E4;
+        }
+        div[data-testid="stFormSubmitButton"] > button {
+            background:#3182F6; color:#fff; border:none;
+            border-radius:12px; font-weight:800;
+            box-shadow:0 3px 0 #1A6AE0;
+        }
+        div[data-testid="stFormSubmitButton"] > button:hover { background:#2672E8; }
+        div[data-testid="stFormSubmitButton"] > button:active {
+            transform:translateY(2px); box-shadow:0 0 0 #1A6AE0;
+        }
+
+        /* Buy/sell buttons are .primary-action via class attr fallback —
+           keep our st.button consistent. Buy expander button inside form: */
+        .stock-card + div div[data-testid="stButton"] > button {
+            background:#0F7B0F; color:#fff; border:none;
+            box-shadow:0 3px 0 #0A5A0A;
+        }
+
+        /* ---- Expander ---- */
+        details[data-testid="stExpander"] {
+            background:#fff; border-radius:14px; border:1px solid #EEE !important;
+            box-shadow:0 2px 0 rgba(0,0,0,0.03);
+            margin-bottom:10px;
+        }
+        details[data-testid="stExpander"] summary {
+            font-weight:700; color:#1a1a1a;
+        }
+
+        /* ---- Info/warning boxes ---- */
+        div[data-testid="stAlert"] {
+            background:#FFF8E4; border:1px solid #F0D590;
+            border-radius:14px; color:#7A4F00;
+        }
+
+        /* ---- Overflow safety ---- */
         .kpi-value { overflow-wrap:anywhere; word-break:keep-all; }
         .stock-card { overflow:hidden; }
         .stock-card > div { min-width:0; }
-
-        /* Horizontal scroll wrapper for wide tables (history) */
         .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 
-        /* ============== MOBILE responsive (<= 768px) ============== */
+        /* ============ MOBILE (<= 768px) ============ */
         @media (max-width: 768px) {
-            .block-container { padding-left: 0.6rem !important; padding-right: 0.6rem !important; }
-            .hero { padding:14px 16px; gap:10px; flex-wrap:wrap; }
-            .hero-icon { width:44px; height:44px; font-size:22px; border-radius:10px; }
-            .hero-title { font-size:17px; }
-            .hero-sub { font-size:10.5px; }
-            .hero-right { margin-left:auto; min-width:0; text-align:right; }
-            .hero-stamp { font-size:10px; }
-
-            .kpi { padding:10px 12px; }
+            .block-container { padding-left:0.7rem !important; padding-right:0.7rem !important; }
+            .hero { padding:16px 16px 8px; }
+            .hero-big { font-size:32px; }
+            .kpi { padding:12px; }
             .kpi-label { font-size:9px; letter-spacing:0.5px; }
-            .kpi-value { font-size:16px; }
-            .kpi-hint { font-size:9.5px; }
-
-            .stock-card { padding:12px 14px; }
-            .stock-card > div { flex-wrap:wrap !important; gap:12px !important; }
+            .kpi-value { font-size:18px; }
+            .stock-card { padding:14px; }
+            .stock-card > div { flex-wrap:wrap !important; gap:10px !important; }
             .stock-name { font-size:14px; }
-            .big-score { font-size:24px; }
+            .big-score { font-size:22px; }
             .factor-row { font-size:10.5px; }
-
             .pill { font-size:9.5px; padding:2px 8px; }
-
-            /* Tabs smaller */
             .stTabs [data-baseweb="tab"] { padding:8px 10px; font-size:11px; }
+            .badge .ic { font-size:18px; }
+            .badge .t { font-size:9px; }
         }
-
-        /* Phone (<= 480px) */
         @media (max-width: 480px) {
-            .kpi-value { font-size:14px; }
-            .hero-title { font-size:15px; }
-            .hero-sub { display:none; }
-            .stock-card > div { gap:8px !important; }
+            .hero-big { font-size:28px; }
+            .kpi-value { font-size:16px; }
         }
         </style>
         """,
@@ -263,27 +380,131 @@ inject_css()
 
 
 # ============================================================
-#  Hero
+#  Load data (BEFORE hero — hero needs P/L numbers)
 # ============================================================
-now_kst = datetime.now().strftime("%Y-%m-%d %H:%M KST")
-sync_pill = ('<span class="pill pill-green">● CLOUD 연동됨</span>' if CLOUD_MODE
-             else '<span class="pill pill-gold">● 로컬 모드 (읽기)</span>')
+portfolio, portfolio_sha = load_portfolio_sha()
+history, history_sha = load_history_sha()
+_open_tickers = tuple(sorted(portfolio["positions"].keys()))
+current_prices = fetch_current_prices(_open_tickers)
+summary = pf.compute_summary(portfolio, history, current_prices=current_prices)
+
+realized = summary["realized_pnl_krw"]
+unrealized = summary["unrealized_pnl_krw"]
+open_cost = summary["open_cost_krw"]
+unreal_pct = (unrealized / open_cost * 100) if open_cost > 0 else 0.0
+win_rate = summary["win_rate"] * 100
+
+
+# ---- Streak: days since first trade ----
+_streak_days = 0
+if history.get("trades"):
+    try:
+        _first = min(
+            t.get("entry_date") or t.get("exit_date", "9999-99-99")
+            for t in history["trades"]
+        )
+        _d0 = datetime.strptime(_first, "%Y-%m-%d")
+        _streak_days = max(1, (datetime.now() - _d0).days + 1)
+    except Exception:
+        _streak_days = 0
+
+
+# ============================================================
+#  Top bar (brand + streak)
+# ============================================================
+_streak_html = (f'<div class="streak-pill">🔥 {_streak_days}일차</div>'
+                if _streak_days > 0 else '')
 st.markdown(
-    f"""
-    <div class="hero">
-        <div class="hero-icon">📈</div>
-        <div>
-            <div class="hero-title">춘큐 스탁 어드바이져</div>
-            <div class="hero-sub">Momentum × Supply-Demand × Quality Guard · 페이퍼 트레이딩</div>
-        </div>
-        <div class="hero-right">
-            {sync_pill}
-            <div class="hero-stamp">{now_kst}</div>
-        </div>
-    </div>
-    """,
+    f'<div class="topbar"><div class="brand">📈 춘큐 스탁 어드바이져</div>'
+    f'{_streak_html}</div>',
     unsafe_allow_html=True,
 )
+
+
+# ============================================================
+#  Hero — 평가손익 + 5일 P/L 그래프
+# ============================================================
+def _render_hero_chart(points: list[tuple[str, float]], up: bool) -> str:
+    """Render inline SVG line chart for 5-day P/L history."""
+    if not points:
+        # Placeholder baseline when no history yet
+        return (
+            '<div class="hero-chart"><svg viewBox="0 0 300 72" preserveAspectRatio="none">'
+            '<line x1="0" y1="36" x2="300" y2="36" stroke="#0F7B0F" '
+            'stroke-opacity="0.3" stroke-dasharray="3 4" stroke-width="1.5"/>'
+            '</svg></div>'
+            '<div class="hero-xlabels"><span>데이터 쌓이는 중…</span></div>'
+        )
+
+    xs = [i for i, _ in enumerate(points)]
+    ys = [v for _, v in points]
+    lo, hi = min(ys), max(ys)
+    span = hi - lo if hi != lo else max(abs(hi), 1)
+    pad = span * 0.15 or 1
+    lo_p, hi_p = lo - pad, hi + pad
+    w, h = 300, 72
+    n = max(1, len(points) - 1)
+
+    def _xy(i: int, y: float) -> tuple[float, float]:
+        x = (i / n) * w if n > 0 else w / 2
+        ny = (y - lo_p) / (hi_p - lo_p) if hi_p != lo_p else 0.5
+        yy = h - ny * h * 0.85 - h * 0.075
+        return x, yy
+
+    path_d = ""
+    for i, (_, v) in enumerate(points):
+        x, y = _xy(i, v)
+        path_d += ("M" if i == 0 else " L") + f"{x:.1f},{y:.1f}"
+    fill_d = path_d + f" L{w},{h} L0,{h} Z"
+
+    color = "#0F7B0F" if up else "#CC2222"
+    lx, ly = _xy(len(points) - 1, ys[-1])
+    xlabels_cls = "" if up else " down"
+    label_spans = "".join(f"<span>{d}</span>" for d, _ in points)
+
+    return (
+        f'<div class="hero-chart"><svg viewBox="0 0 {w} {h}" preserveAspectRatio="none">'
+        f'<defs><linearGradient id="heroG" x1="0" x2="0" y1="0" y2="1">'
+        f'<stop offset="0%" stop-color="{color}" stop-opacity="0.32"/>'
+        f'<stop offset="100%" stop-color="{color}" stop-opacity="0"/>'
+        f'</linearGradient></defs>'
+        f'<path d="{fill_d}" fill="url(#heroG)"/>'
+        f'<path d="{path_d}" stroke="{color}" stroke-width="2.5" '
+        f'stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+        f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="4" fill="{color}"/>'
+        f'<circle cx="{lx:.1f}" cy="{ly:.1f}" r="7" fill="{color}" opacity="0.25"/>'
+        f'</svg></div>'
+        f'<div class="hero-xlabels{xlabels_cls}">{label_spans}</div>'
+    )
+
+
+_pl_hist_df = fetch_price_history_df(_open_tickers, days=5)
+_pl_points = portfolio_pl_series(portfolio, _pl_hist_df)
+
+if current_prices:
+    _up = unrealized >= 0
+    _down_cls = "" if _up else " down"
+    _sign = "+" if _up else ""
+    _hint = f"{_sign}{unreal_pct:.2f}% · 30분 캐시"
+    st.markdown(
+        f'<div class="hero">'
+        f'<div class="hero-label">평가손익</div>'
+        f'<div class="hero-big{_down_cls}">{_sign}{unrealized:,.0f}원</div>'
+        f'<div class="hero-pct{_down_cls}">{_hint}</div>'
+        f'{_render_hero_chart(_pl_points, _up)}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        '<div class="hero">'
+        '<div class="hero-label">평가손익</div>'
+        '<div class="hero-big" style="color:#6b6b6b;">보유 없음</div>'
+        '<div class="hero-hint">추천 탭에서 첫 매수를 시작하세요</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
 
 if not CLOUD_MODE:
     st.info(
@@ -293,57 +514,60 @@ if not CLOUD_MODE:
 
 
 # ============================================================
-#  Load data
+#  KPI mini-cards (peach / lavender / blueish / mint)
 # ============================================================
-portfolio, portfolio_sha = load_portfolio_sha()
-history, history_sha = load_history_sha()
-_open_tickers = tuple(sorted(portfolio["positions"].keys()))
-current_prices = fetch_current_prices(_open_tickers)
-summary = pf.compute_summary(portfolio, history, current_prices=current_prices)
-
-
-def kpi_card(label, value, color="", hint=""):
-    cls = {"green":"kpi-green","red":"kpi-red","gold":"kpi-gold","blue":"kpi-blue"}.get(color,"")
-    return (f'<div class="kpi"><div class="kpi-label">{label}</div>'
-            f'<div class="kpi-value {cls}">{value}</div>'
+def kpi_card(label, value, color_cls="peach", hint=""):
+    """color_cls: 'peach' | 'lav' | 'blueish' | 'mint'"""
+    return (f'<div class="kpi {color_cls}"><div class="kpi-label">{label}</div>'
+            f'<div class="kpi-value">{value}</div>'
             f'<div class="kpi-hint">{hint}</div></div>')
 
 
-realized = summary["realized_pnl_krw"]
-unrealized = summary["unrealized_pnl_krw"]
-open_cost = summary["open_cost_krw"]
-unreal_pct = (unrealized / open_cost * 100) if open_cost > 0 else 0.0
-win_rate = summary["win_rate"] * 100
 k1, k2, k3, k4 = st.columns(4)
 with k1:
-    st.markdown(kpi_card("OPEN POSITIONS", f"{summary['open_positions']}", "blue",
-                         "실 보유 종목 수"), unsafe_allow_html=True)
-with k2:
-    if current_prices:
-        c = "green" if unrealized >= 0 else "red"
-        s = "+" if unrealized >= 0 else ""
-        hint = f"{s}{unreal_pct:.2f}% · 30분 캐시"
-        st.markdown(kpi_card("UNREALIZED P/L", f"{s}{unrealized:,.0f}원", c, hint),
-                    unsafe_allow_html=True)
-    else:
-        st.markdown(kpi_card("UNREALIZED P/L", "–", "", "보유 없음"),
-                    unsafe_allow_html=True)
-with k3:
-    c = "green" if realized >= 0 else "red"
-    s = "+" if realized >= 0 else ""
-    st.markdown(kpi_card("REALIZED P/L", f"{s}{realized:,.0f}원", c, "누적 실현손익"),
+    st.markdown(kpi_card("보유 종목", f"{summary['open_positions']}",
+                         "peach", "현재 보유 수"),
                 unsafe_allow_html=True)
-with k4:
+with k2:
     if summary["closed_trades"] > 0:
-        wc = "green" if win_rate >= 50 else "red"
-        st.markdown(kpi_card("WIN RATE", f"{win_rate:.1f}%", wc,
+        st.markdown(kpi_card("승률", f"{win_rate:.1f}%", "lav",
                              f"{summary['wins']}승 / {summary['losses']}패"),
                     unsafe_allow_html=True)
     else:
-        st.markdown(kpi_card("WIN RATE", "–", "", "매도 기록 없음"),
+        st.markdown(kpi_card("승률", "–", "lav", "매도 기록 없음"),
                     unsafe_allow_html=True)
+with k3:
+    _rs = "+" if realized >= 0 else ""
+    st.markdown(kpi_card("실현 손익", f"{_rs}{realized:,.0f}원",
+                         "blueish", "누적 실현"),
+                unsafe_allow_html=True)
+with k4:
+    st.markdown(kpi_card("총 거래", f"{summary['trades_count']}",
+                         "mint", "매수+매도 전체"),
+                unsafe_allow_html=True)
 
-st.write("")
+
+# ============================================================
+#  Achievement badges
+# ============================================================
+_b_first = len([t for t in history.get("trades", []) if t.get("action") == "buy"]) > 0
+_b_streak3 = _streak_days >= 3
+_b_plus = unrealized > 0 if current_prices else False
+_b_win50 = win_rate >= 50 and summary["closed_trades"] >= 4
+
+def _badge(icon: str, text: str, on: bool) -> str:
+    cls = "" if on else " lock"
+    return f'<div class="badge{cls}"><div class="ic">{icon if on else "🔒"}</div><div class="t">{text}</div></div>'
+
+st.markdown(
+    f'<div class="badges-row">'
+    f'{_badge("🏆", "첫 매수", _b_first)}'
+    f'{_badge("🎯", "3일연속", _b_streak3)}'
+    f'{_badge("💪", "플러스", _b_plus)}'
+    f'{_badge("⭐", "승률 50+", _b_win50)}'
+    f'</div>',
+    unsafe_allow_html=True,
+)
 
 
 # ============================================================
@@ -425,7 +649,7 @@ def render_stock_card(rec: dict, held: bool = False, rank_badge: str = ""):
         f'<div style="flex:3;min-width:220px;">{factor_html}</div>'
         f'<div style="flex:1;min-width:110px;text-align:right;">'
         f'<div class="small-label">현재가</div>'
-        f'<div style="font-size:17px;font-weight:700;color:#f0f5ff;">₩{price:,}</div>'
+        f'<div style="font-size:17px;font-weight:700;color:#1a1a1a;">₩{price:,}</div>'
         f'</div></div></div>',
         unsafe_allow_html=True,
     )
@@ -503,7 +727,7 @@ with tab_rec:
     if not f:
         st.markdown(
             '<div class="empty-panel"><div class="empty-emoji">📭</div>'
-            '<div style="font-size:14px;font-weight:700;color:#e5edff;">점수 파일 없음</div>'
+            '<div style="font-size:14px;font-weight:700;color:#1a1a1a;">점수 파일 없음</div>'
             '<div style="margin-top:6px;">GitHub Actions가 매일 저녁 자동 계산합니다.<br>'
             '(또는 데스크탑 앱에서 "오늘 점수 계산" 실행)</div></div>',
             unsafe_allow_html=True,
@@ -535,11 +759,11 @@ with tab_rec:
             regime = df["regime"].iloc[0] if "regime" in df.columns else "?"
             as_of = df["as_of"].iloc[0] if "as_of" in df.columns else "?"
             st.markdown(
-                f'<div style="margin-bottom:12px;color:#9aa8c7;font-size:12px;">'
-                f'<b style="color:#f0f5ff;">{as_of}</b> · '
+                f'<div style="margin-bottom:12px;color:#8a8a8a;font-size:12px;">'
+                f'<b style="color:#1a1a1a;">{as_of}</b> · '
                 f'국면 <span class="pill pill-blue">{regime}</span> · '
-                f'85+ <b style="color:#22c55e">{n85}</b> · '
-                f'90+ <b style="color:#22c55e">{n90}</b></div>',
+                f'85+ <b style="color:#0F7B0F">{n85}</b> · '
+                f'90+ <b style="color:#0F7B0F">{n90}</b></div>',
                 unsafe_allow_html=True,
             )
 
@@ -549,7 +773,7 @@ with tab_rec:
             #  SECTION 1: 새로운 추천 (보유 종목 제외, 85점+ 상위 5)
             # ==================================================
             st.markdown(
-                '<div style="font-size:16px;font-weight:800;color:#f0f5ff;'
+                '<div style="font-size:16px;font-weight:800;color:#1a1a1a;'
                 'margin:10px 0 10px;">🎯 새로운 추천</div>',
                 unsafe_allow_html=True,
             )
@@ -560,7 +784,7 @@ with tab_rec:
             if fresh_df.empty:
                 st.markdown(
                     '<div class="empty-panel"><div class="empty-emoji">🛡️</div>'
-                    '<div style="color:#e5edff;font-weight:700;">오늘은 새로 살 거 없음</div>'
+                    '<div style="color:#1a1a1a;font-weight:700;">오늘은 새로 살 거 없음</div>'
                     '<div style="margin-top:6px;">85점 이상 신규 종목 없음 · '
                     '보유 종목 유지가 오늘의 답입니다.</div></div>',
                     unsafe_allow_html=True,
@@ -594,7 +818,7 @@ with tab_rec:
                                 qty = max(1, chosen_amt // price)
                                 cost = qty * price
                                 over = cost > chosen_amt
-                                cost_color = "#fbbf24" if over else "#22c55e"
+                                cost_color = "#EAB308" if over else "#0F7B0F"
                                 over_txt = " (배정 초과)" if over else ""
                                 st.markdown(
                                     f"<div style='margin-top:12px;font-size:13px;'>"
@@ -618,7 +842,7 @@ with tab_rec:
             # ==================================================
             if held_tickers:
                 st.markdown(
-                    '<div style="font-size:16px;font-weight:800;color:#f0f5ff;'
+                    '<div style="font-size:16px;font-weight:800;color:#1a1a1a;'
                     'margin:22px 0 10px;">💼 내 보유 종목 오늘 상태</div>',
                     unsafe_allow_html=True,
                 )
@@ -635,18 +859,18 @@ with tab_rec:
                         if prev_s is not None:
                             d = cur_s - prev_s
                             if abs(d) < 0.05:
-                                delta_html = '<span style="color:#6b7a9c;font-size:11px;">→</span>'
+                                delta_html = '<span style="color:#6b6b6b;font-size:11px;">→</span>'
                             elif d > 0:
-                                delta_html = f'<span style="color:#22c55e;font-size:11px;font-weight:700;">↑{d:.1f}</span>'
+                                delta_html = f'<span style="color:#0F7B0F;font-size:11px;font-weight:700;">↑{d:.1f}</span>'
                             else:
-                                delta_html = f'<span style="color:#ef4444;font-size:11px;font-weight:700;">↓{-d:.1f}</span>'
+                                delta_html = f'<span style="color:#CC2222;font-size:11px;font-weight:700;">↓{-d:.1f}</span>'
                         else:
                             delta_html = ""
                         score_html = (f'<div style="font-size:22px;font-weight:900;'
-                                      f'color:#fbbf24;line-height:1;">{cur_s:.1f}</div>'
+                                      f'color:#EAB308;line-height:1;">{cur_s:.1f}</div>'
                                       f'<div style="margin-top:3px;">{delta_html}</div>')
                     else:
-                        score_html = ('<div style="color:#6b7a9c;font-size:11px;'
+                        score_html = ('<div style="color:#6b6b6b;font-size:11px;'
                                       'line-height:1.4;">Top 500<br/>밖</div>')
 
                     # Current price + P/L
@@ -655,16 +879,16 @@ with tab_rec:
                     if cur_price:
                         pl = (cur_price - entry) * qty
                         pl_pct = (cur_price / entry - 1) * 100
-                        c = "#22c55e" if pl >= 0 else "#ef4444"
+                        c = "#0F7B0F" if pl >= 0 else "#CC2222"
                         s = "+" if pl >= 0 else ""
                         pl_html = (
-                            f'<div style="font-size:14px;font-weight:700;color:#f0f5ff;">'
+                            f'<div style="font-size:14px;font-weight:700;color:#1a1a1a;">'
                             f'₩{cur_price:,.0f}</div>'
                             f'<div style="font-size:13px;color:{c};font-weight:800;'
                             f'margin-top:2px;">{s}{pl:,.0f}원 ({s}{pl_pct:.2f}%)</div>'
                         )
                     else:
-                        pl_html = ('<div style="color:#6b7a9c;font-size:12px;">'
+                        pl_html = ('<div style="color:#6b6b6b;font-size:12px;">'
                                    '시세 조회 실패</div>')
 
                     st.markdown(
@@ -705,20 +929,20 @@ with tab_rec:
                     marker=dict(color="#3b82f6", line=dict(width=0)),
                     opacity=0.85,
                 ))
-                for thr, label, color in [(85, "85", "#22c55e"),
-                                          (90, "90", "#fbbf24"),
-                                          (95, "95", "#ef4444")]:
+                for thr, label, color in [(85, "85", "#0F7B0F"),
+                                          (90, "90", "#EAB308"),
+                                          (95, "95", "#CC2222")]:
                     fig_dist.add_vline(x=thr, line=dict(color=color, width=1.5, dash="dash"),
                                        annotation_text=label, annotation_position="top",
                                        annotation_font_size=10, annotation_font_color=color)
                 fig_dist.update_layout(
-                    template="plotly_dark", paper_bgcolor="#111c33", plot_bgcolor="#111c33",
-                    font=dict(color="#e5edff", family="Segoe UI", size=11),
+                    template="plotly_white", paper_bgcolor="#FFFFFF", plot_bgcolor="#FAFAFA",
+                    font=dict(color="#1a1a1a", family="Pretendard, Segoe UI", size=11),
                     margin=dict(l=40, r=20, t=24, b=34), height=240,
                     bargap=0.05, showlegend=False,
                     xaxis=dict(title="총점", range=[0, 100],
-                               gridcolor="#1b2744", zeroline=False, fixedrange=True),
-                    yaxis=dict(title="종목 수", gridcolor="#1b2744",
+                               gridcolor="#EEEEEE", zeroline=False, fixedrange=True),
+                    yaxis=dict(title="종목 수", gridcolor="#EEEEEE",
                                zeroline=False, fixedrange=True),
                     dragmode=False,
                 )
@@ -746,15 +970,15 @@ with tab_rec:
                         orientation="h", name=name, marker=dict(color=color),
                     ))
                 fig_stack.update_layout(
-                    template="plotly_dark", paper_bgcolor="#111c33", plot_bgcolor="#111c33",
-                    font=dict(color="#e5edff", family="Segoe UI", size=11),
+                    template="plotly_white", paper_bgcolor="#FFFFFF", plot_bgcolor="#FAFAFA",
+                    font=dict(color="#1a1a1a", family="Pretendard, Segoe UI", size=11),
                     margin=dict(l=110, r=20, t=10, b=50), height=360,
                     barmode="stack", showlegend=True,
                     legend=dict(orientation="h", yanchor="bottom", y=-0.15,
                                 xanchor="center", x=0.5, font=dict(size=10)),
-                    xaxis=dict(title="가중 기여 점수", gridcolor="#1b2744",
+                    xaxis=dict(title="가중 기여 점수", gridcolor="#EEEEEE",
                                zeroline=False, range=[0, 100], fixedrange=True),
-                    yaxis=dict(gridcolor="#1b2744", zeroline=False, fixedrange=True),
+                    yaxis=dict(gridcolor="#EEEEEE", zeroline=False, fixedrange=True),
                     dragmode=False,
                 )
                 st.plotly_chart(fig_stack, use_container_width=True,
@@ -773,14 +997,14 @@ def _render_positions(mode_key: str):
         if mode_key == "simulation":
             st.markdown(
                 '<div class="empty-panel"><div class="empty-emoji">🧪</div>'
-                '<div style="color:#e5edff;font-weight:700;">모의 보유 없음</div>'
+                '<div style="color:#1a1a1a;font-weight:700;">모의 보유 없음</div>'
                 '<div style="margin-top:6px;">추천 탭에서 매수하세요.</div></div>',
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(
                 '<div class="empty-panel"><div class="empty-emoji">💼</div>'
-                '<div style="color:#e5edff;font-weight:700;">실전 계좌 미연동</div>'
+                '<div style="color:#1a1a1a;font-weight:700;">실전 계좌 미연동</div>'
                 '<div style="margin-top:6px;">Phase 5: 증권사 API 연동 · '
                 '모의투자 2주 + 백테스트 알파 +3% 통과 후</div></div>',
                 unsafe_allow_html=True,
@@ -799,7 +1023,7 @@ def _render_positions(mode_key: str):
             mv = cur * qty
             pl = (cur - entry) * qty
             pl_pct = (cur / entry - 1) * 100
-            pl_color = "#22c55e" if pl >= 0 else "#ef4444"
+            pl_color = "#0F7B0F" if pl >= 0 else "#CC2222"
             pl_sign = "+" if pl >= 0 else ""
             cur_html = (
                 f'<div style="flex:1;">'
@@ -818,10 +1042,10 @@ def _render_positions(mode_key: str):
             cur_html = (
                 f'<div style="flex:1;">'
                 f'<div class="small-label">현재가</div>'
-                f'<div style="font-size:14px;color:#6b7a9c;">–</div></div>'
+                f'<div style="font-size:14px;color:#6b6b6b;">–</div></div>'
                 f'<div style="flex:1;">'
                 f'<div class="small-label">평가손익</div>'
-                f'<div style="font-size:14px;color:#6b7a9c;">시세 조회 실패</div></div>'
+                f'<div style="font-size:14px;color:#6b6b6b;">시세 조회 실패</div></div>'
             )
 
         st.markdown(
@@ -871,7 +1095,7 @@ with tab_hist:
     if not trades:
         st.markdown(
             '<div class="empty-panel"><div class="empty-emoji">📜</div>'
-            '<div style="color:#e5edff;font-weight:700;">거래 기록 없음</div></div>',
+            '<div style="color:#1a1a1a;font-weight:700;">거래 기록 없음</div></div>',
             unsafe_allow_html=True,
         )
     else:
@@ -908,18 +1132,18 @@ with tab_hist:
 
         GRID = "110px 90px 1fr 90px 100px 110px 100px 100px 1fr"
         HEAD = (f"display:grid;grid-template-columns:{GRID};padding:11px 16px;"
-                "background:#0f172a;border-bottom:1px solid #22324f;"
+                "background:#F5F5F5;border-bottom:1px solid #E0E0E0;"
                 "font-size:10.5px;font-weight:700;letter-spacing:0.6px;"
-                "color:#9aa8c7;text-transform:uppercase;")
+                "color:#6b6b6b;text-transform:uppercase;")
         ROW = (f"display:grid;grid-template-columns:{GRID};padding:12px 16px;"
-               "border-bottom:1px solid #1b2744;font-size:12.5px;align-items:center;"
+               "border-bottom:1px solid #EEEEEE;font-size:12.5px;align-items:center;"
                "font-variant-numeric:tabular-nums;")
 
         trades_sorted = sorted(trades,
                                key=lambda t: t.get("exit_date") or t.get("entry_date") or "",
                                reverse=True)
 
-        parts = ['<div class="table-scroll" style="background:#111c33;border:1px solid #1b2744;border-radius:12px;">']
+        parts = ['<div class="table-scroll" style="background:#fff;border:1px solid #E5E5E5;border-radius:14px;box-shadow:0 2px 0 rgba(0,0,0,0.03);">']
         parts.append('<div style="min-width:920px;">')
         parts.append(f'<div style="{HEAD}">')
         parts.append('<div>날짜</div><div>구분</div><div>종목</div>')
@@ -951,7 +1175,7 @@ with tab_hist:
             if action == "buy":
                 total = t.get("cost_krw", qty * price)
                 pill_cls, pill_text = "pill-blue", "매수"
-                pnl_cell = '<span style="color:#6b7a9c;">–</span>'
+                pnl_cell = '<span style="color:#6b6b6b;">–</span>'
                 profit_cell = pnl_cell
                 reason_display = (f'진입점수 {t.get("entry_score",0):.1f}' if "entry_score" in t else "")
             else:
@@ -959,13 +1183,13 @@ with tab_hist:
                 pill_cls = "pill-green" if (pnl_krw or 0) >= 0 else "pill-red"
                 pill_text = "매도"
                 if pnl_pct is not None:
-                    c = "#22c55e" if pnl_pct >= 0 else "#ef4444"
+                    c = "#0F7B0F" if pnl_pct >= 0 else "#CC2222"
                     s = "+" if pnl_pct >= 0 else ""
                     pnl_cell = f'<span style="color:{c};font-weight:700;">{s}{pnl_pct:.2f}%</span>'
                 else:
                     pnl_cell = '–'
                 if pnl_krw is not None:
-                    c = "#22c55e" if pnl_krw >= 0 else "#ef4444"
+                    c = "#0F7B0F" if pnl_krw >= 0 else "#CC2222"
                     s = "+" if pnl_krw >= 0 else ""
                     profit_cell = f'<span style="color:{c};font-weight:700;">{s}{pnl_krw:,.0f}원</span>'
                 else:
@@ -976,18 +1200,18 @@ with tab_hist:
                 reason_display = reason_display.replace(eng, kor)
 
             row = (f'<div style="{ROW}">'
-                   f'<div style="color:#9aa8c7;font-family:Consolas,monospace;">{date}</div>'
+                   f'<div style="color:#8a8a8a;font-family:Consolas,monospace;">{date}</div>'
                    f'<div><span class="pill {pill_cls}">{pill_text}</span></div>'
                    f'<div>'
-                   f'<div style="color:#f0f5ff;font-weight:700;">{name}</div>'
-                   f'<div style="color:#6b7a9c;font-size:10.5px;font-family:Consolas,monospace;">{ticker}</div>'
+                   f'<div style="color:#1a1a1a;font-weight:700;">{name}</div>'
+                   f'<div style="color:#6b6b6b;font-size:10.5px;font-family:Consolas,monospace;">{ticker}</div>'
                    f'</div>'
-                   f'<div style="text-align:right;color:#e5edff;">{qty:,}주</div>'
-                   f'<div style="text-align:right;color:#e5edff;">₩{price:,.0f}</div>'
-                   f'<div style="text-align:right;color:#f0f5ff;font-weight:700;">₩{total:,.0f}</div>'
+                   f'<div style="text-align:right;color:#1a1a1a;">{qty:,}주</div>'
+                   f'<div style="text-align:right;color:#1a1a1a;">₩{price:,.0f}</div>'
+                   f'<div style="text-align:right;color:#1a1a1a;font-weight:700;">₩{total:,.0f}</div>'
                    f'<div style="text-align:right;">{pnl_cell}</div>'
                    f'<div style="text-align:right;">{profit_cell}</div>'
-                   f'<div style="color:#9aa8c7;font-size:11.5px;">{reason_display}</div>'
+                   f'<div style="color:#8a8a8a;font-size:11.5px;">{reason_display}</div>'
                    f'</div>')
             parts.append(row)
 
@@ -1001,7 +1225,7 @@ with tab_perf:
     if not sells_all:
         st.markdown(
             '<div class="empty-panel"><div class="empty-emoji">📊</div>'
-            '<div style="color:#e5edff;font-weight:700;">매도 거래 없음</div>'
+            '<div style="color:#1a1a1a;font-weight:700;">매도 거래 없음</div>'
             '<div style="margin-top:6px;">첫 매도부터 누적 손익 차트가 표시됩니다.</div></div>',
             unsafe_allow_html=True,
         )
@@ -1025,7 +1249,7 @@ with tab_perf:
                                       "green" if total>=0 else "red"), unsafe_allow_html=True)
 
         st.write("")
-        line_color = "#22c55e" if total >= 0 else "#ef4444"
+        line_color = "#0F7B0F" if total >= 0 else "#CC2222"
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=df_s["exit_date"], y=df_s["cum_pnl"],
@@ -1033,16 +1257,16 @@ with tab_perf:
             line=dict(color=line_color, width=2.5),
             marker=dict(size=7, color=line_color, line=dict(width=1, color="#fff")),
             fill="tozeroy",
-            fillcolor="rgba(34,197,94,0.08)" if total>=0 else "rgba(239,68,68,0.08)",
+            fillcolor="rgba(15,123,15,0.1)" if total>=0 else "rgba(204,34,34,0.1)",
         ))
         fig.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="#0b1222", plot_bgcolor="#111c33",
-            font=dict(color="#e5edff", family="Segoe UI", size=12),
+            template="plotly_white",
+            paper_bgcolor="#FAF9F6", plot_bgcolor="#FFFFFF",
+            font=dict(color="#1a1a1a", family="Pretendard, Segoe UI", size=12),
             margin=dict(l=40, r=20, t=20, b=40), height=360,
-            xaxis=dict(gridcolor="#1b2744", showgrid=True, zeroline=False, fixedrange=True),
-            yaxis=dict(gridcolor="#1b2744", showgrid=True, zeroline=True,
-                       zerolinecolor="#22324f", title="누적 손익 (원)", fixedrange=True),
+            xaxis=dict(gridcolor="#EEEEEE", showgrid=True, zeroline=False, fixedrange=True),
+            yaxis=dict(gridcolor="#EEEEEE", showgrid=True, zeroline=True,
+                       zerolinecolor="#CCCCCC", title="누적 손익 (원)", fixedrange=True),
             showlegend=False, dragmode=False,
         )
         st.plotly_chart(
@@ -1060,10 +1284,10 @@ with tab_info:
             f'<div class="stock-card">'
             f'<div class="small-label">SCORING WEIGHTS</div>'
             f'<div style="margin-top:10px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">'
-            f'<div>모멘텀 <b style="color:#22c55e;">{w["momentum"]}%</b></div>'
-            f'<div>수급 <b style="color:#3b82f6;">{w["supply_demand"]}%</b></div>'
+            f'<div>모멘텀 <b style="color:#0F7B0F;">{w["momentum"]}%</b></div>'
+            f'<div>수급 <b style="color:#3182F6;">{w["supply_demand"]}%</b></div>'
             f'<div>퀄리티 <b style="color:#a855f7;">{w["quality"]}%</b></div>'
-            f'<div>역추세 <b style="color:#fbbf24;">{w["mean_reversion"]}%</b></div>'
+            f'<div>역추세 <b style="color:#EAB308;">{w["mean_reversion"]}%</b></div>'
             f'</div></div>',
             unsafe_allow_html=True,
         )
@@ -1073,10 +1297,10 @@ with tab_info:
             f'<div class="stock-card">'
             f'<div class="small-label">SELL RULES</div>'
             f'<div style="margin-top:10px;font-size:12.5px;line-height:1.8;">'
-            f'· 하드 손절 <b style="color:#ef4444;">{sr["hard_stop_loss_pct"]}%</b><br>'
-            f'· 부분 익절 <b style="color:#22c55e;">+{sr["hard_take_profit_partial_pct"]}%</b> 에서 50%<br>'
+            f'· 하드 손절 <b style="color:#CC2222;">{sr["hard_stop_loss_pct"]}%</b><br>'
+            f'· 부분 익절 <b style="color:#0F7B0F;">+{sr["hard_take_profit_partial_pct"]}%</b> 에서 50%<br>'
             f'· 타임 스톱 <b>{sr["time_stop_days"]}</b> 거래일<br>'
-            f'· 트레일링 스톱 <b style="color:#fbbf24;">{sr["trailing_stop_pct"]}%</b><br>'
+            f'· 트레일링 스톱 <b style="color:#EAB308;">{sr["trailing_stop_pct"]}%</b><br>'
             f'· 매도점수 {sr["sell_score_stage1"]}+ → 50% · {sr["sell_score_stage2"]}+ → 100%'
             f'</div></div>',
             unsafe_allow_html=True,
@@ -1085,8 +1309,8 @@ with tab_info:
     # Sync status
     if CLOUD_MODE:
         st.markdown(
-            '<div style="margin-top:14px;padding:12px;background:rgba(34,197,94,0.08);'
-            'border:1px solid rgba(34,197,94,0.3);border-radius:8px;">'
+            '<div style="margin-top:14px;padding:14px;background:#EAFBEF;'
+            'border:1px solid #B8E5C0;border-radius:14px;box-shadow:0 2px 0 rgba(0,0,0,0.03);">'
             '<span class="pill pill-green">● 클라우드 연동</span> '
             'GitHub API를 통해 매수/매도 및 데이터 읽기 가능. '
             '매일 저녁 18:30 (KST) GitHub Actions가 자동으로 점수 계산.'
@@ -1095,8 +1319,8 @@ with tab_info:
         )
     else:
         st.markdown(
-            '<div style="margin-top:14px;padding:12px;background:rgba(251,191,36,0.08);'
-            'border:1px solid rgba(251,191,36,0.3);border-radius:8px;color:#e5edff;">'
+            '<div style="margin-top:14px;padding:14px;background:#FFF8E4;'
+            'border:1px solid #F0D590;border-radius:14px;color:#7A4F00;box-shadow:0 2px 0 rgba(0,0,0,0.03);">'
             '<span class="pill pill-gold">● 로컬 모드</span> '
             'Streamlit Cloud → Settings → Secrets 에 <code>GITHUB_TOKEN</code> 추가하면 '
             '웹에서 매수/매도가 활성화됩니다.'
@@ -1106,9 +1330,9 @@ with tab_info:
 
     import sys
     st.markdown(
-        f'<div style="margin-top:14px;color:#6b7a9c;font-size:11px;text-align:center;">'
+        f'<div style="margin-top:14px;color:#6b6b6b;font-size:11px;text-align:center;">'
         f'Python {sys.version.split()[0]} · Streamlit {st.__version__} · '
-        f'<a href="https://github.com/junkyulee2/stock-advisor" style="color:#3b82f6;">GitHub</a>'
+        f'<a href="https://github.com/junkyulee2/stock-advisor" style="color:#3182F6;">GitHub</a>'
         f'</div>',
         unsafe_allow_html=True,
     )

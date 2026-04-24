@@ -98,7 +98,7 @@ def trigger_workflow(workflow_file: str = "daily_score.yml", ref: str = "main") 
         raise RuntimeError(f"workflow dispatch failed ({r.status_code}): {r.text[:200]}")
 
 
-def last_workflow_run(workflow_file: str = "daily_score.yml") -> dict | None:
+def last_workflow_run(workflow_file: str = "daily_score.yml") -> Optional[dict]:
     """Return the most recent workflow run summary (status, conclusion, created_at).
     None if no runs exist or API unavailable.
     """

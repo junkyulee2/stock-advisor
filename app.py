@@ -818,14 +818,24 @@ with tab_rec:
                                  use_container_width=True,
                                  help="GitHub Actions를 수동 실행해 최신 점수 재계산. "
                                       "완료까지 5~10분 소요 · 완료 후 페이지 새로고침"):
-                        try:
-                            cloud_store.trigger_workflow()
-                            st.success("✅ 점수 재계산 요청됨. 5~10분 후 새로고침.")
-                            st.toast("GitHub Actions 실행 중...", icon="🔄")
-                        except Exception as e:
-                            st.error(f"갱신 실패: {e}")
+                        trig = getattr(cloud_store, "trigger_workflow", None)
+                        if trig is None:
+                            st.error("갱신 함수 누락 — 배포 캐시 문제. 잠시 후 재시도.")
+                        else:
+                            try:
+                                trig()
+                                st.success("✅ 점수 재계산 요청됨. 5~10분 후 새로고침.")
+                                st.toast("GitHub Actions 실행 중...", icon="🔄")
+                            except Exception as e:
+                                st.error(f"갱신 실패: {e}")
                 with rc2:
-                    run_info = cloud_store.last_workflow_run()
+                    run_fn = getattr(cloud_store, "last_workflow_run", None)
+                    run_info = None
+                    if run_fn is not None:
+                        try:
+                            run_info = run_fn()
+                        except Exception:
+                            run_info = None
                     if run_info:
                         status = run_info.get("status", "?")
                         conclusion = run_info.get("conclusion") or ""

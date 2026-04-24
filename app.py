@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -53,6 +53,25 @@ PORTFOLIO_PATH = PROJECT_ROOT / CONFIG["paths"]["portfolio"]
 HISTORY_PATH = PROJECT_ROOT / CONFIG["paths"]["history"]
 SCORES_DIR = PROJECT_ROOT / CONFIG["paths"]["scores_dir"]
 CLOUD_MODE = cloud_store.is_configured()
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def fetch_current_prices(tickers: tuple[str, ...]) -> dict[str, float]:
+    """Last close per ticker. 30-minute cache so repeated reloads don't spam."""
+    if not tickers:
+        return {}
+    import FinanceDataReader as fdr
+    today_s = datetime.now().strftime("%Y-%m-%d")
+    week_s = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
+    out: dict[str, float] = {}
+    for t in tickers:
+        try:
+            df = fdr.DataReader(t, week_s, today_s)
+            if not df.empty:
+                out[t] = float(df["Close"].iloc[-1])
+        except Exception:
+            pass
+    return out
 
 
 # ============================================================
@@ -278,7 +297,9 @@ if not CLOUD_MODE:
 # ============================================================
 portfolio, portfolio_sha = load_portfolio_sha()
 history, history_sha = load_history_sha()
-summary = pf.compute_summary(portfolio, history, current_prices={})
+_open_tickers = tuple(sorted(portfolio["positions"].keys()))
+current_prices = fetch_current_prices(_open_tickers)
+summary = pf.compute_summary(portfolio, history, current_prices=current_prices)
 
 
 def kpi_card(label, value, color="", hint=""):
@@ -289,17 +310,30 @@ def kpi_card(label, value, color="", hint=""):
 
 
 realized = summary["realized_pnl_krw"]
+unrealized = summary["unrealized_pnl_krw"]
+open_cost = summary["open_cost_krw"]
+unreal_pct = (unrealized / open_cost * 100) if open_cost > 0 else 0.0
 win_rate = summary["win_rate"] * 100
 k1, k2, k3, k4 = st.columns(4)
 with k1:
     st.markdown(kpi_card("OPEN POSITIONS", f"{summary['open_positions']}", "blue",
                          "실 보유 종목 수"), unsafe_allow_html=True)
 with k2:
+    if current_prices:
+        c = "green" if unrealized >= 0 else "red"
+        s = "+" if unrealized >= 0 else ""
+        hint = f"{s}{unreal_pct:.2f}% · 30분 캐시"
+        st.markdown(kpi_card("UNREALIZED P/L", f"{s}{unrealized:,.0f}원", c, hint),
+                    unsafe_allow_html=True)
+    else:
+        st.markdown(kpi_card("UNREALIZED P/L", "–", "", "보유 없음"),
+                    unsafe_allow_html=True)
+with k3:
     c = "green" if realized >= 0 else "red"
     s = "+" if realized >= 0 else ""
     st.markdown(kpi_card("REALIZED P/L", f"{s}{realized:,.0f}원", c, "누적 실현손익"),
                 unsafe_allow_html=True)
-with k3:
+with k4:
     if summary["closed_trades"] > 0:
         wc = "green" if win_rate >= 50 else "red"
         st.markdown(kpi_card("WIN RATE", f"{win_rate:.1f}%", wc,
@@ -308,9 +342,6 @@ with k3:
     else:
         st.markdown(kpi_card("WIN RATE", "–", "", "매도 기록 없음"),
                     unsafe_allow_html=True)
-with k4:
-    st.markdown(kpi_card("TRADES", f"{summary['trades_count']}", "",
-                         "매수+매도 총 기록"), unsafe_allow_html=True)
 
 st.write("")
 
@@ -325,6 +356,26 @@ def latest_scores_file() -> Path | None:
     return files[-1] if files else None
 
 
+def prev_scores_file() -> Path | None:
+    """Second-most-recent scores file, for day-over-day comparison."""
+    if not SCORES_DIR.exists():
+        return None
+    files = sorted(SCORES_DIR.glob("scores_*.json"))
+    return files[-2] if len(files) >= 2 else None
+
+
+def _rank_badge(ticker: str, today_rank: int, prev_rank_map: dict) -> str:
+    prev = prev_rank_map.get(ticker)
+    if prev is None:
+        return '<span class="pill pill-gold" style="font-size:9.5px;">🆕 NEW</span>'
+    delta = prev - today_rank
+    if delta > 0:
+        return f'<span class="pill pill-green" style="font-size:9.5px;">↑{delta}</span>'
+    if delta < 0:
+        return f'<span class="pill pill-red" style="font-size:9.5px;">↓{-delta}</span>'
+    return '<span class="pill pill-gray" style="font-size:9.5px;">→</span>'
+
+
 FACTOR_META = [
     ("모멘텀", "momentum_score", "#22c55e"),
     ("수급",   "supply_demand_score", "#3b82f6"),
@@ -333,7 +384,7 @@ FACTOR_META = [
 ]
 
 
-def render_stock_card(rec: dict, held: bool = False):
+def render_stock_card(rec: dict, held: bool = False, rank_badge: str = ""):
     name = rec.get("name", "-")
     ticker = rec.get("ticker", "")
     score = float(rec.get("total_score", 0))
@@ -356,6 +407,8 @@ def render_stock_card(rec: dict, held: bool = False):
         pill = f'<span class="pill pill-green">배정 {amount:,}원</span>'
     else:
         pill = '<span class="pill pill-gray">85점 미달</span>'
+    if rank_badge:
+        pill = f'{rank_badge} {pill}'
 
     st.markdown(
         f'<div class="stock-card">'
@@ -459,7 +512,22 @@ with tab_rec:
         try:
             df = pd.read_json(f)
             if "total_score" in df.columns:
-                df = df.sort_values("total_score", ascending=False)
+                df = df.sort_values("total_score", ascending=False).reset_index(drop=True)
+
+            # Previous day's scores for day-over-day rank/score comparison
+            prev_rank_map: dict[str, int] = {}
+            prev_score_map: dict[str, float] = {}
+            pf_ = prev_scores_file()
+            if pf_ is not None:
+                try:
+                    prev_df = pd.read_json(pf_).sort_values(
+                        "total_score", ascending=False
+                    ).reset_index(drop=True)
+                    prev_rank_map = {r["ticker"]: i + 1 for i, r in prev_df.iterrows()}
+                    prev_score_map = {r["ticker"]: float(r["total_score"])
+                                      for _, r in prev_df.iterrows()}
+                except Exception:
+                    pass
 
             min_score = CONFIG["portfolio_limits"]["min_score_to_buy"]
             n85 = int((df["total_score"] >= 85).sum())
@@ -475,57 +543,145 @@ with tab_rec:
                 unsafe_allow_html=True,
             )
 
-            # ==================================================
-            #  1) STOCK CARDS FIRST (top priority content)
-            # ==================================================
-            top = df[df["total_score"] >= min_score].head(10) if n85 else df.head(10)
             held_tickers = set(portfolio["positions"].keys())
-            for _, row in top.iterrows():
-                rec = row.to_dict()
-                ticker = rec["ticker"]
-                held = ticker in held_tickers
-                render_stock_card(rec, held=held)
 
-                # Buy form (expandable, only if cloud mode + not held + score >=85)
-                if CLOUD_MODE and not held and rec.get("amount_krw", 0) > 0:
-                    with st.expander(f"💰 {rec['name']} 매수하기", expanded=False):
-                        price = int(rec.get("close", 0))
-                        auto_amt = int(rec.get("amount_krw", 0))
-                        c1, c2, c3 = st.columns([2, 2, 1])
-                        with c1:
-                            options = [100_000, 200_000, 300_000]
-                            labels = [f"{a:,}원" +
-                                      (" (자동)" if a == auto_amt else "")
-                                      for a in options]
-                            choice = st.radio("금액 선택", labels,
-                                              index=options.index(auto_amt)
-                                              if auto_amt in options else 0,
-                                              horizontal=True,
-                                              key=f"radio_{ticker}")
-                            chosen_amt = options[labels.index(choice)]
-                        with c2:
-                            qty = max(1, chosen_amt // price)
-                            cost = qty * price
-                            over = cost > chosen_amt
-                            cost_color = "#fbbf24" if over else "#22c55e"
-                            over_txt = " (배정 초과)" if over else ""
-                            st.markdown(
-                                f"<div style='margin-top:12px;font-size:13px;'>"
-                                f"<b>{qty}주</b> × ₩{price:,} = "
-                                f"<b style='color:{cost_color}'>₩{cost:,}</b>"
-                                f"{over_txt}</div>",
-                                unsafe_allow_html=True,
-                            )
-                        with c3:
-                            if st.button("매수 실행", key=f"buy_{ticker}",
-                                         use_container_width=True):
-                                if web_buy(rec, chosen_amt):
-                                    st.success(f"{rec['name']} {qty}주 매수 완료")
-                                    st.balloons()
-                                    st.rerun()
+            # ==================================================
+            #  SECTION 1: 새로운 추천 (보유 종목 제외, 85점+ 상위 5)
+            # ==================================================
+            st.markdown(
+                '<div style="font-size:16px;font-weight:800;color:#f0f5ff;'
+                'margin:10px 0 10px;">🎯 새로운 추천</div>',
+                unsafe_allow_html=True,
+            )
 
-                elif not CLOUD_MODE and not held and rec.get("amount_krw", 0) > 0:
-                    st.caption(f"💡 {rec['name']} 매수는 데스크탑 앱 또는 GITHUB_TOKEN 설정 후 가능")
+            fresh_df = df[(df["total_score"] >= min_score)
+                          & (~df["ticker"].isin(held_tickers))].head(5)
+
+            if fresh_df.empty:
+                st.markdown(
+                    '<div class="empty-panel"><div class="empty-emoji">🛡️</div>'
+                    '<div style="color:#e5edff;font-weight:700;">오늘은 새로 살 거 없음</div>'
+                    '<div style="margin-top:6px;">85점 이상 신규 종목 없음 · '
+                    '보유 종목 유지가 오늘의 답입니다.</div></div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                for idx, row in fresh_df.iterrows():
+                    rec = row.to_dict()
+                    ticker = rec["ticker"]
+                    today_rank = int(idx) + 1  # idx is preserved from reset_index
+                    badge = _rank_badge(ticker, today_rank, prev_rank_map)
+                    render_stock_card(rec, held=False, rank_badge=badge)
+
+                    # Buy form
+                    if CLOUD_MODE and rec.get("amount_krw", 0) > 0:
+                        with st.expander(f"💰 {rec['name']} 매수하기", expanded=False):
+                            price = int(rec.get("close", 0))
+                            auto_amt = int(rec.get("amount_krw", 0))
+                            c1, c2, c3 = st.columns([2, 2, 1])
+                            with c1:
+                                options = [100_000, 200_000, 300_000]
+                                labels = [f"{a:,}원" +
+                                          (" (자동)" if a == auto_amt else "")
+                                          for a in options]
+                                choice = st.radio("금액 선택", labels,
+                                                  index=options.index(auto_amt)
+                                                  if auto_amt in options else 0,
+                                                  horizontal=True,
+                                                  key=f"radio_{ticker}")
+                                chosen_amt = options[labels.index(choice)]
+                            with c2:
+                                qty = max(1, chosen_amt // price)
+                                cost = qty * price
+                                over = cost > chosen_amt
+                                cost_color = "#fbbf24" if over else "#22c55e"
+                                over_txt = " (배정 초과)" if over else ""
+                                st.markdown(
+                                    f"<div style='margin-top:12px;font-size:13px;'>"
+                                    f"<b>{qty}주</b> × ₩{price:,} = "
+                                    f"<b style='color:{cost_color}'>₩{cost:,}</b>"
+                                    f"{over_txt}</div>",
+                                    unsafe_allow_html=True,
+                                )
+                            with c3:
+                                if st.button("매수 실행", key=f"buy_{ticker}",
+                                             use_container_width=True):
+                                    if web_buy(rec, chosen_amt):
+                                        st.success(f"{rec['name']} {qty}주 매수 완료")
+                                        st.balloons()
+                                        st.rerun()
+                    elif not CLOUD_MODE:
+                        st.caption(f"💡 {rec['name']} 매수는 GITHUB_TOKEN 설정 후 가능")
+
+            # ==================================================
+            #  SECTION 2: 내 보유 종목 오늘 상태
+            # ==================================================
+            if held_tickers:
+                st.markdown(
+                    '<div style="font-size:16px;font-weight:800;color:#f0f5ff;'
+                    'margin:22px 0 10px;">💼 내 보유 종목 오늘 상태</div>',
+                    unsafe_allow_html=True,
+                )
+                today_map = {row["ticker"]: row.to_dict() for _, row in df.iterrows()}
+                for ticker in held_tickers:
+                    pos = portfolio["positions"][ticker]
+                    rec_today = today_map.get(ticker)
+                    cur_price = current_prices.get(ticker)
+                    prev_s = prev_score_map.get(ticker)
+
+                    # Today's score + day delta
+                    if rec_today is not None:
+                        cur_s = float(rec_today.get("total_score", 0))
+                        if prev_s is not None:
+                            d = cur_s - prev_s
+                            if abs(d) < 0.05:
+                                delta_html = '<span style="color:#6b7a9c;font-size:11px;">→</span>'
+                            elif d > 0:
+                                delta_html = f'<span style="color:#22c55e;font-size:11px;font-weight:700;">↑{d:.1f}</span>'
+                            else:
+                                delta_html = f'<span style="color:#ef4444;font-size:11px;font-weight:700;">↓{-d:.1f}</span>'
+                        else:
+                            delta_html = ""
+                        score_html = (f'<div style="font-size:22px;font-weight:900;'
+                                      f'color:#fbbf24;line-height:1;">{cur_s:.1f}</div>'
+                                      f'<div style="margin-top:3px;">{delta_html}</div>')
+                    else:
+                        score_html = ('<div style="color:#6b7a9c;font-size:11px;'
+                                      'line-height:1.4;">Top 500<br/>밖</div>')
+
+                    # Current price + P/L
+                    entry = pos["entry_price"]
+                    qty = pos["qty"]
+                    if cur_price:
+                        pl = (cur_price - entry) * qty
+                        pl_pct = (cur_price / entry - 1) * 100
+                        c = "#22c55e" if pl >= 0 else "#ef4444"
+                        s = "+" if pl >= 0 else ""
+                        pl_html = (
+                            f'<div style="font-size:14px;font-weight:700;color:#f0f5ff;">'
+                            f'₩{cur_price:,.0f}</div>'
+                            f'<div style="font-size:13px;color:{c};font-weight:800;'
+                            f'margin-top:2px;">{s}{pl:,.0f}원 ({s}{pl_pct:.2f}%)</div>'
+                        )
+                    else:
+                        pl_html = ('<div style="color:#6b7a9c;font-size:12px;">'
+                                   '시세 조회 실패</div>')
+
+                    st.markdown(
+                        f'<div class="stock-card">'
+                        f'<div style="display:flex;align-items:center;gap:16px;">'
+                        f'<div style="flex:2;min-width:140px;">'
+                        f'<div class="stock-name">{pos["name"]}</div>'
+                        f'<div class="stock-ticker">{ticker} · 진입 ₩{entry:,.0f} · {qty}주</div>'
+                        f'</div>'
+                        f'<div style="flex:0 0 76px;text-align:center;">'
+                        f'<div class="small-label">오늘점수</div>'
+                        f'{score_html}</div>'
+                        f'<div style="flex:1;min-width:140px;text-align:right;">'
+                        f'{pl_html}</div>'
+                        f'</div></div>',
+                        unsafe_allow_html=True,
+                    )
 
             # ==================================================
             #  2) CHARTS — below, collapsed (static, no touch/hover)
@@ -638,42 +794,68 @@ def _render_positions(mode_key: str):
         cost = p["cost_krw"]
         entry_date = p["entry_date"]
         score = p.get("entry_score", 0)
+        cur = current_prices.get(ticker)
+        if cur:
+            mv = cur * qty
+            pl = (cur - entry) * qty
+            pl_pct = (cur / entry - 1) * 100
+            pl_color = "#22c55e" if pl >= 0 else "#ef4444"
+            pl_sign = "+" if pl >= 0 else ""
+            cur_html = (
+                f'<div style="flex:1;">'
+                f'<div class="small-label">현재가</div>'
+                f'<div style="font-size:16px;font-weight:700;">₩{cur:,.0f}</div></div>'
+                f'<div style="flex:1;">'
+                f'<div class="small-label">평가손익</div>'
+                f'<div style="font-size:16px;font-weight:800;color:{pl_color};">'
+                f'{pl_sign}{pl:,.0f}원</div>'
+                f'<div style="font-size:11px;color:{pl_color};font-weight:700;">'
+                f'{pl_sign}{pl_pct:.2f}%</div></div>'
+            )
+        else:
+            cur = entry
+            mv = cost
+            cur_html = (
+                f'<div style="flex:1;">'
+                f'<div class="small-label">현재가</div>'
+                f'<div style="font-size:14px;color:#6b7a9c;">–</div></div>'
+                f'<div style="flex:1;">'
+                f'<div class="small-label">평가손익</div>'
+                f'<div style="font-size:14px;color:#6b7a9c;">시세 조회 실패</div></div>'
+            )
 
         st.markdown(
             f'<div class="stock-card">'
             f'<div style="display:flex;align-items:center;gap:20px;">'
             f'<div style="flex:2;min-width:160px;">'
             f'<div class="stock-name">{name}</div>'
-            f'<div class="stock-ticker">{ticker} · 진입 {entry_date}</div>'
+            f'<div class="stock-ticker">{ticker} · 진입 {entry_date} · {qty}주</div>'
             f'<div style="margin-top:8px;"><span class="pill pill-gray">진입점수 {score:.1f}</span></div>'
             f'</div>'
             f'<div style="flex:1;">'
             f'<div class="small-label">진입가</div>'
             f'<div style="font-size:16px;font-weight:700;">₩{entry:,.0f}</div></div>'
-            f'<div style="flex:1;">'
-            f'<div class="small-label">수량</div>'
-            f'<div style="font-size:16px;font-weight:700;">{qty}주</div></div>'
-            f'<div style="flex:1;">'
-            f'<div class="small-label">원가</div>'
-            f'<div style="font-size:16px;font-weight:700;">₩{cost:,.0f}</div></div>'
+            f'{cur_html}'
             f'</div></div>',
             unsafe_allow_html=True,
         )
 
         if CLOUD_MODE:
             with st.expander(f"💸 {name} 매도", expanded=False):
+                sell_price = cur if current_prices.get(ticker) else entry
+                st.caption(f"매도 예상가: ₩{sell_price:,.0f}"
+                           + ("" if current_prices.get(ticker) else " (시세 조회 실패 — 진입가 사용)"))
                 c1, c2 = st.columns(2)
                 with c1:
                     if st.button("50% 매도", key=f"sell50_{ticker}",
                                  use_container_width=True):
-                        if web_sell(ticker, entry, 0.5, "수동 (웹)"):
+                        if web_sell(ticker, sell_price, 0.5, "수동 (웹)"):
                             st.rerun()
                 with c2:
                     if st.button("100% 매도", key=f"sell100_{ticker}",
                                  use_container_width=True):
-                        if web_sell(ticker, entry, 1.0, "수동 (웹)"):
+                        if web_sell(ticker, sell_price, 1.0, "수동 (웹)"):
                             st.rerun()
-                st.caption("※ 매도 가격은 진입가 기준. 실제 현재가 연동은 Phase 2에서 추가.")
 
 
 with tab_sim:

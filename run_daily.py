@@ -52,6 +52,25 @@ def fetch_universe_and_data(config: dict, as_of: str, limit: int | None = None):
     universe = universe[universe["trading_value"] >= min_tv].reset_index(drop=True)
     logger.info(f"after liquidity filter: {len(universe)} tickers")
 
+    # Force-include held positions so the web app can always show a current
+    # score even when a held ticker slips below top_n or the liquidity floor.
+    try:
+        portfolio = pf.load_portfolio(PROJECT_ROOT / config["paths"]["portfolio"])
+        held = set(portfolio.get("positions", {}).keys())
+    except Exception:
+        held = set()
+    missing = held - set(universe["ticker"])
+    if missing:
+        full_listing = dc.get_universe(
+            as_of=as_of, markets=u_cfg["markets"], top_n=10_000,
+        )
+        add = full_listing[full_listing["ticker"].isin(missing)]
+        if not add.empty:
+            universe = pd.concat([universe, add], ignore_index=True).drop_duplicates(
+                subset=["ticker"], keep="first"
+            ).reset_index(drop=True)
+            logger.info(f"force-included {len(add)} held tickers not in top_n/liquidity")
+
     # Price panel — 80 trading days back for 60d momentum + MAs
     start, end = dc.date_range_for_lookback(as_of, 80)
     tickers = universe["ticker"].tolist()
@@ -182,7 +201,25 @@ def save_daily_scores(df: pd.DataFrame, config: dict, as_of: str) -> Path:
     out_path = out_dir / f"scores_{as_of}.json"
     df.reset_index().to_json(out_path, orient="records", force_ascii=False, indent=2)
     logger.info(f"saved scores -> {out_path}")
+    cleanup_old_scores(out_dir, keep=7)
     return out_path
+
+
+def cleanup_old_scores(scores_dir: Path, keep: int = 7) -> None:
+    """Delete all but the most recent `keep` scores_*.json files.
+
+    Held positions remain fully tracked via portfolio.json (entry_score) and
+    today's file — old daily snapshots are not needed for day-to-day use.
+    """
+    files = sorted(scores_dir.glob("scores_*.json"))
+    if len(files) <= keep:
+        return
+    for f in files[:-keep]:
+        try:
+            f.unlink()
+            logger.info(f"pruned old scores: {f.name}")
+        except Exception as e:
+            logger.warning(f"failed to prune {f.name}: {e}")
 
 
 def recommend_top3(df: pd.DataFrame, config: dict) -> list[dict]:

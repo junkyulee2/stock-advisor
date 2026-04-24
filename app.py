@@ -809,8 +809,37 @@ with tab_rec:
 
             held_tickers = set(portfolio["positions"].keys())
 
+            # ----- Refresh scores via GitHub Actions workflow_dispatch -----
+            if CLOUD_MODE:
+                rc1, rc2 = st.columns([3, 2])
+                with rc1:
+                    if st.button("🔄 최신 점수 갱신 (GitHub Actions)",
+                                 key="refresh_scores",
+                                 use_container_width=True,
+                                 help="GitHub Actions를 수동 실행해 최신 점수 재계산. "
+                                      "완료까지 5~10분 소요 · 완료 후 페이지 새로고침"):
+                        try:
+                            cloud_store.trigger_workflow()
+                            st.success("✅ 점수 재계산 요청됨. 5~10분 후 새로고침.")
+                            st.toast("GitHub Actions 실행 중...", icon="🔄")
+                        except Exception as e:
+                            st.error(f"갱신 실패: {e}")
+                with rc2:
+                    run_info = cloud_store.last_workflow_run()
+                    if run_info:
+                        status = run_info.get("status", "?")
+                        conclusion = run_info.get("conclusion") or ""
+                        if status == "completed":
+                            emoji = "✅" if conclusion == "success" else "❌"
+                            label = f"{emoji} {conclusion}"
+                        elif status in ("queued", "in_progress"):
+                            label = f"⏳ {status}"
+                        else:
+                            label = status
+                        st.caption(f"마지막 실행: {label}")
+
             # ==================================================
-            #  SECTION 1: 새로운 추천 (보유 종목 제외, 85점+ 상위 5)
+            #  SECTION 1: 새로운 추천 (보유 종목 제외, 80점+ 상위 5)
             # ==================================================
             st.markdown(
                 '<div style="font-size:16px;font-weight:800;color:#1a1a1a;'

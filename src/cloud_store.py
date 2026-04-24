@@ -69,3 +69,66 @@ def write_json(path: str, data: Any, sha: Optional[str], message: str) -> str:
         result = repo.create_file(path=path, message=message, content=body,
                                   branch="main")
     return result["content"].sha
+
+
+def trigger_workflow(workflow_file: str = "daily_score.yml", ref: str = "main") -> None:
+    """Dispatch a GitHub Actions workflow run (manual trigger).
+
+    Requires GITHUB_TOKEN with `actions: write` scope (classic `repo` scope
+    covers it). Raises on failure.
+    """
+    import requests
+    token = _get_token()
+    if not token:
+        raise RuntimeError("GITHUB_TOKEN not configured")
+    repo_name = _get_repo_name()
+    url = (f"https://api.github.com/repos/{repo_name}"
+           f"/actions/workflows/{workflow_file}/dispatches")
+    r = requests.post(
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        json={"ref": ref},
+        timeout=15,
+    )
+    if r.status_code >= 300:
+        raise RuntimeError(f"workflow dispatch failed ({r.status_code}): {r.text[:200]}")
+
+
+def last_workflow_run(workflow_file: str = "daily_score.yml") -> dict | None:
+    """Return the most recent workflow run summary (status, conclusion, created_at).
+    None if no runs exist or API unavailable.
+    """
+    import requests
+    token = _get_token()
+    if not token:
+        return None
+    repo_name = _get_repo_name()
+    url = (f"https://api.github.com/repos/{repo_name}"
+           f"/actions/workflows/{workflow_file}/runs?per_page=1")
+    try:
+        r = requests.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+            },
+            timeout=10,
+        )
+        if r.status_code != 200:
+            return None
+        runs = r.json().get("workflow_runs", [])
+        if not runs:
+            return None
+        run = runs[0]
+        return {
+            "status": run.get("status"),         # queued / in_progress / completed
+            "conclusion": run.get("conclusion"),  # success / failure / None
+            "created_at": run.get("created_at"),
+            "html_url": run.get("html_url"),
+        }
+    except Exception:
+        return None

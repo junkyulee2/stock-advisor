@@ -688,6 +688,46 @@ def web_buy(rec: dict, amount_krw: int) -> bool:
     return ok1 and ok2
 
 
+def web_add(ticker: str, price: float, amount_krw: int, score: float) -> bool:
+    """Pyramid-add to existing position via cloud/local store."""
+    if price <= 0:
+        st.error("가격이 0입니다")
+        return False
+    portfolio_latest, sha = load_portfolio_sha()
+    history_latest, hsha = load_history_sha()
+
+    if ticker not in portfolio_latest["positions"]:
+        st.error("보유 종목이 아닙니다")
+        return False
+
+    limits = CONFIG.get("portfolio_limits", {})
+    max_adds = int(limits.get("max_adds_per_position", 3))
+    existing_adds = portfolio_latest["positions"][ticker].get("add_count", 0)
+    if existing_adds >= max_adds:
+        st.warning(f"추가 매수 한도 초과 (최대 {max_adds}회)")
+        return False
+
+    try:
+        pos, new_qty = pf.add_to_position(
+            portfolio_latest, ticker=ticker, price=price,
+            amount_krw=amount_krw, score=score,
+        )
+        pf.record_add_history(history_latest,
+                              ticker=ticker, name=pos["name"],
+                              qty=new_qty, price=price, score=score)
+    except Exception as e:
+        st.error(f"추가 매수 계산 실패: {e}")
+        return False
+
+    ok1 = _cloud_write("data/portfolio.json", portfolio_latest, sha,
+                       f"web: add {ticker} +{new_qty}주 @ {price:,.0f}")
+    ok2 = _cloud_write("data/history.json", history_latest, hsha,
+                       f"web: history add {ticker}")
+    if ok1 and ok2:
+        st.success(f"추가 매수: {pos['name']} +{new_qty}주 @ ₩{price:,.0f}")
+    return ok1 and ok2
+
+
 def web_sell(ticker: str, current_price: float, sell_ratio: float, reason: str) -> bool:
     portfolio_latest, sha = load_portfolio_sha()
     history_latest, hsha = load_history_sha()
@@ -891,12 +931,14 @@ with tab_rec:
                         pl_html = ('<div style="color:#6b6b6b;font-size:12px;">'
                                    '시세 조회 실패</div>')
 
+                    add_count = pos.get("add_count", 0)
+                    add_hint = (f" · +{add_count}회 추매" if add_count > 0 else "")
                     st.markdown(
-                        f'<div class="stock-card">'
+                        f'<div class="stock-card held">'
                         f'<div style="display:flex;align-items:center;gap:16px;">'
                         f'<div style="flex:2;min-width:140px;">'
                         f'<div class="stock-name">{pos["name"]}</div>'
-                        f'<div class="stock-ticker">{ticker} · 진입 ₩{entry:,.0f} · {qty}주</div>'
+                        f'<div class="stock-ticker">{ticker} · 진입 ₩{entry:,.0f} · {qty}주{add_hint}</div>'
                         f'</div>'
                         f'<div style="flex:0 0 76px;text-align:center;">'
                         f'<div class="small-label">오늘점수</div>'
@@ -906,6 +948,46 @@ with tab_rec:
                         f'</div></div>',
                         unsafe_allow_html=True,
                     )
+
+                    # ----- Add-to-position + 매도 버튼 -----
+                    if CLOUD_MODE:
+                        limits = CONFIG.get("portfolio_limits", {})
+                        add_amt = int(limits.get("add_amount_krw", 100_000))
+                        add_min = float(limits.get("add_min_score", 80))
+                        max_adds = int(limits.get("max_adds_per_position", 3))
+                        today_score = float(rec_today.get("total_score", 0)) if rec_today is not None else 0
+                        can_add = (cur_price is not None
+                                   and today_score >= add_min
+                                   and add_count < max_adds)
+                        price_for_trade = cur_price if cur_price else entry
+
+                        bc1, bc2, bc3 = st.columns([2, 1, 1])
+                        with bc1:
+                            add_label = f"💰 +{add_amt//10_000}만원 추매"
+                            if not can_add:
+                                if today_score < add_min:
+                                    add_label = f"⚠️ {add_min:.0f}점 미달 ({today_score:.1f})"
+                                elif add_count >= max_adds:
+                                    add_label = f"🔒 추매 한도 ({max_adds}회)"
+                                elif cur_price is None:
+                                    add_label = "시세 조회 실패"
+                            if st.button(add_label, key=f"add_{ticker}",
+                                         use_container_width=True,
+                                         disabled=not can_add):
+                                if web_add(ticker, price_for_trade, add_amt,
+                                           today_score):
+                                    st.balloons()
+                                    st.rerun()
+                        with bc2:
+                            if st.button("50% 매도", key=f"recsell50_{ticker}",
+                                         use_container_width=True):
+                                if web_sell(ticker, price_for_trade, 0.5, "수동 (웹)"):
+                                    st.rerun()
+                        with bc3:
+                            if st.button("전량 매도", key=f"recsell100_{ticker}",
+                                         use_container_width=True):
+                                if web_sell(ticker, price_for_trade, 1.0, "수동 (웹)"):
+                                    st.rerun()
 
             # ==================================================
             #  2) CHARTS — below, collapsed (static, no touch/hover)

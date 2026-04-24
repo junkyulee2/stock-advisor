@@ -77,6 +77,65 @@ def update_highest(portfolio: dict, ticker: str, current_price: float) -> None:
         p["highest_price"] = float(current_price)
 
 
+def add_to_position(
+    portfolio: dict,
+    ticker: str,
+    price: float,
+    amount_krw: int,
+    score: float,
+    date: Optional[str] = None,
+    min_qty: int = 1,
+) -> tuple[dict, int]:
+    """Pyramid-add to an existing position. Recomputes weighted-avg entry.
+
+    Returns (updated position, new shares purchased).
+    """
+    pos = portfolio["positions"].get(ticker)
+    if not pos:
+        raise ValueError(f"no existing position: {ticker}")
+    if price <= 0:
+        raise ValueError(f"invalid price: {price}")
+
+    target_qty = int(amount_krw // price)
+    qty = max(min_qty, target_qty)
+    new_cost = qty * price
+
+    pos["qty"] += qty
+    pos["initial_qty"] = pos.get("initial_qty", pos["qty"] - qty) + qty
+    pos["cost_krw"] = pos.get("cost_krw", 0) + new_cost
+    # Weighted-average entry price across all buys
+    pos["entry_price"] = pos["cost_krw"] / pos["initial_qty"]
+    if price > pos.get("highest_price", 0):
+        pos["highest_price"] = float(price)
+    pos["last_added_date"] = date or iso_today()
+    pos["add_count"] = pos.get("add_count", 0) + 1
+    portfolio["updated_at"] = iso_today()
+    return pos, qty
+
+
+def record_add_history(
+    history: dict,
+    ticker: str,
+    name: str,
+    qty: int,
+    price: float,
+    score: float,
+    date: Optional[str] = None,
+) -> None:
+    """Record a pyramid-add as a separate history entry (action=buy, type=add)."""
+    history["trades"].append({
+        "ticker": ticker,
+        "name": name,
+        "action": "buy",
+        "type": "add",
+        "qty": qty,
+        "price": float(price),
+        "cost_krw": qty * price,
+        "entry_score": float(score),
+        "entry_date": date or iso_today(),
+    })
+
+
 def sell(
     portfolio: dict,
     history: dict,

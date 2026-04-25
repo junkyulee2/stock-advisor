@@ -29,6 +29,17 @@
       "cost_krw": 229500.0,
       "entry_score": 86.0101066243,
       "entry_date": "2026-04-24"
+    },
+    {
+      "ticker": "483650",
+      "name": "달바글로벌",
+      "action": "buy",
+      "type": "add",
+      "qty": 1,
+      "price": 240500.0,
+      "cost_krw": 240500.0,
+      "entry_score": 85.9310904377,
+      "entry_date": "2026-04-25"
     }
   ]
 }

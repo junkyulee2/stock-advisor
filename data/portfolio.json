@@ -11,7 +11,7 @@
       "cost_krw": 93000.0,
       "entry_score": 86.8943623646,
       "sector": null,
-      "highest_price": 15500.0,
+      "highest_price": 16030.0,
       "partial_taken": false,
       "realized_pnl_krw": 0
     },
@@ -25,7 +25,7 @@
       "cost_krw": 137200.0,
       "entry_score": 87.8773830143,
       "sector": null,
-      "highest_price": 137200.0,
+      "highest_price": 145500.0,
       "partial_taken": false,
       "realized_pnl_krw": 0
     },
@@ -39,7 +39,7 @@
       "cost_krw": 229500.0,
       "entry_score": 86.0101066243,
       "sector": null,
-      "highest_price": 229500.0,
+      "highest_price": 241000.0,
       "partial_taken": false,
       "realized_pnl_krw": 0
     }

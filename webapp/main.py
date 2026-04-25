@@ -179,6 +179,31 @@ def api_workflow_status():
     return JSONResponse({"available": True, **info})
 
 
+@app.get("/api/debug")
+def api_debug():
+    """Diagnose cloud connection state. Strips token values."""
+    import os
+    from src import cloud_store
+    from webapp import data_layer
+
+    result: dict = {
+        "env_GITHUB_TOKEN_set": bool(os.environ.get("GITHUB_TOKEN")),
+        "env_GITHUB_REPO": os.environ.get("GITHUB_REPO") or "(not set; defaulting)",
+        "cloud_store.is_configured": cloud_store.is_configured(),
+        "data_layer.CLOUD_MODE": data_layer.CLOUD_MODE,
+    }
+    try:
+        data, sha = cloud_store.read_json("data/portfolio.json")
+        result["read_portfolio"] = "ok"
+        result["positions_count"] = len(data.get("positions", {})) if data else 0
+        result["sha_first8"] = (sha or "")[:8]
+    except Exception as e:
+        result["read_portfolio"] = "FAIL"
+        result["error_type"] = type(e).__name__
+        result["error_msg"] = str(e)[:300]
+    return JSONResponse(result)
+
+
 # ---------- helpers ----------
 
 def _toast_response(ok: bool, msg: str, refresh: bool = False) -> HTMLResponse:

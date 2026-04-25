@@ -32,17 +32,19 @@
     "483650": {
       "ticker": "483650",
       "name": "달바글로벌",
-      "entry_price": 229500.0,
+      "entry_price": 235000.0,
       "entry_date": "2026-04-24",
-      "qty": 1,
-      "initial_qty": 1,
-      "cost_krw": 229500.0,
+      "qty": 2,
+      "initial_qty": 2,
+      "cost_krw": 470000.0,
       "entry_score": 86.0101066243,
       "sector": null,
       "highest_price": 241000.0,
       "partial_taken": false,
-      "realized_pnl_krw": 0
+      "realized_pnl_krw": 0,
+      "last_added_date": "2026-04-25",
+      "add_count": 1
     }
   },
-  "updated_at": "2026-04-24"
+  "updated_at": "2026-04-25"
 }

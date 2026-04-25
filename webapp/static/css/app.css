@@ -235,6 +235,8 @@ main { padding: 28px 32px 80px; min-width: 0; }
 .scard-price .chg { font-size: 12px; font-weight: 700; margin-top: 3px; }
 
 .factors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.factors-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 700px) { .factors-5 { grid-template-columns: repeat(2, 1fr); } }
 .factor { background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 9px 11px; }
 .factor-label { font-size: 11px; color: var(--ink-3); font-weight: 600; }
 .factor-row { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }

@@ -178,8 +178,11 @@ def compute_daily_scores(config: dict, as_of: str, limit: int | None = None) -> 
     sup = scorer.compute_supply_demand_absolute(flows_panel, price_panel, market_cap_s, config)
     qual = scorer.compute_quality_absolute(fundamentals, config)
     rev = scorer.compute_mean_reversion_absolute(price_panel, config)
+    vol = scorer.compute_volatility_absolute(price_panel, config)
 
-    combined = scorer.combine_scores_absolute(mom, sup, qual, rev, weights, config)
+    combined = scorer.combine_scores_absolute(
+        mom, sup, qual, rev, weights, config, volatility=vol,
+    )
     if combined.empty:
         return combined
 

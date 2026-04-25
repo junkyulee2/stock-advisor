@@ -13,13 +13,15 @@ universe:
     exclude_admin_issues: true                   # 관리종목 제외
     exclude_recent_earnings_days: 3              # 실적발표 전후 3일 제외
 
-# Factor weights (sum to 100)
+# Factor weights (sum to 100) — recalibrated 2026-04-25 (factor research)
+# See docs/factor_research_2026-04-25.md
 scoring:
   factors:
-    momentum:       40
-    supply_demand:  30
-    quality:        20
-    mean_reversion: 10
+    momentum:       35   # was 40 — ret_60d weak (IC 0.094)
+    supply_demand:  25   # was 30
+    quality:        15   # was 20
+    volatility:     10   # NEW — vol_20d strongest 15d signal (IC +0.311)
+    mean_reversion: 15   # was 10 — strong 30d IC (+0.185)
 
   # Absolute thresholds for each factor (linear interpolation between points).
   # Values are sorted by `value` asc; between points the score is interpolated.
@@ -120,9 +122,16 @@ scoring:
 
   momentum:
     # Relative strength vs KOSPI (percentile within universe)
-    return_20d_weight: 50   # 20-day relative return
-    return_60d_weight: 30   # 60-day relative return
-    return_5d_weight:  20   # 5-day short-term momentum
+    # Recalibrated 2026-04-25: ret_60d weak (IC 0.094), boost ret_20d
+    return_20d_weight: 65   # was 50
+    return_60d_weight: 15   # was 30
+    return_5d_weight:  20   # unchanged (strong)
+
+  # Volatility (20-day daily-return std). Percentile-rank scored.
+  # Higher volatility = higher score (rewards momentum-friendly names).
+  # 2026-04-25: 15d IC +0.311 (strongest single signal). Caveat: bull-market data only.
+  volatility:
+    lookback: 20
 
   supply_demand:
     foreign_5d_weight:     40   # Foreign 5-day net buy (KRW)

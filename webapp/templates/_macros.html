@@ -38,7 +38,7 @@
     </div>
   </div>
 
-  <div class="factors">
+  <div class="factors factors-5">
     <div class="factor">
       <div class="factor-label">모멘텀</div>
       <div class="factor-row">
@@ -58,6 +58,13 @@
       <div class="factor-row">
         <div class="factor-val">{{ rec.quality_score|default(0)|float|round|int }}</div>
         <div class="factor-mini"><span style="width:{{ rec.quality_score|default(0)|float|round|int }}%;background:var(--purple);"></span></div>
+      </div>
+    </div>
+    <div class="factor">
+      <div class="factor-label">변동성</div>
+      <div class="factor-row">
+        <div class="factor-val">{{ rec.volatility_score|default(0)|float|round|int }}</div>
+        <div class="factor-mini"><span style="width:{{ rec.volatility_score|default(0)|float|round|int }}%;background:var(--pink);"></span></div>
       </div>
     </div>
     <div class="factor">

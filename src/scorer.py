@@ -283,17 +283,22 @@ def detect_regime(kospi_ohlcv: pd.DataFrame) -> str:
 
 
 def get_regime_weights(regime: str, config: dict) -> dict:
+    factors = config["scoring"]["factors"]
     base = {
-        "momentum": config["scoring"]["factors"]["momentum"],
-        "supply_demand": config["scoring"]["factors"]["supply_demand"],
-        "quality": config["scoring"]["factors"]["quality"],
-        "mean_reversion": config["scoring"]["factors"]["mean_reversion"],
+        "momentum":       factors["momentum"],
+        "supply_demand":  factors["supply_demand"],
+        "quality":        factors["quality"],
+        "mean_reversion": factors["mean_reversion"],
+        "volatility":     factors.get("volatility", 0),  # added 2026-04-25
     }
     regime_cfg = config.get("regime", {})
     if not regime_cfg.get("enabled", False):
         return base
     override = regime_cfg.get(regime, {}).get("weights_override")
-    return override if override else base
+    if override:
+        # Ensure 'volatility' present even if regime override doesn't list it
+        return {**base, **override}
+    return base
 
 
 def combine_scores(
@@ -563,6 +568,39 @@ def compute_mean_reversion_absolute(
     return pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame()
 
 
+def compute_volatility_absolute(
+    price_panel: dict[str, pd.DataFrame],
+    config: dict,
+) -> pd.DataFrame:
+    """Volatility factor scored by percentile rank within universe.
+
+    Higher volatility = higher score (rewards momentum-friendly names).
+    Inductive evidence (2026-04-25 IC analysis): vol_20d had +0.311 IC for
+    forward 15d returns — strongest single signal. Caveat: bull-market data
+    only. Re-verify with `tools/factor_research.py` in ~1 month.
+    """
+    lookback = int(config["scoring"].get("volatility", {}).get("lookback", 20))
+    rows = []
+    for ticker, df in price_panel.items():
+        if df.empty or len(df) < lookback + 1:
+            continue
+        close = df["close"]
+        daily_ret = close.pct_change().dropna().tail(lookback)
+        if len(daily_ret) < max(10, lookback // 2):
+            continue
+        vol = float(daily_ret.std())
+        if vol != vol:  # NaN
+            continue
+        rows.append({"ticker": ticker, "volatility": vol})
+
+    if not rows:
+        return pd.DataFrame()
+    out = pd.DataFrame(rows).set_index("ticker")
+    # Percentile rank → 0~100 score (higher vol = higher percentile = higher score)
+    out["volatility_score"] = out["volatility"].rank(pct=True) * 100.0
+    return out
+
+
 def combine_scores_absolute(
     momentum: pd.DataFrame,
     supply: pd.DataFrame,
@@ -571,12 +609,13 @@ def combine_scores_absolute(
     weights: dict,
     config: dict,
     universe_index: Optional[pd.Index] = None,
+    volatility: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     """Combine factor scores into base_score then apply top-of-day bonus.
 
     Output columns:
       momentum_score, supply_demand_score, quality_score, mean_reversion_score,
-      base_score, top_bonus, total_score, amount_krw (set later)
+      volatility_score, base_score, top_bonus, total_score, amount_krw (set later)
     """
     # merge
     frames = []
@@ -588,6 +627,8 @@ def combine_scores_absolute(
         frames.append(quality[["quality_score"]])
     if not reversion.empty:
         frames.append(reversion[["mean_reversion_score"]])
+    if volatility is not None and not volatility.empty:
+        frames.append(volatility[["volatility_score"]])
 
     if not frames:
         return pd.DataFrame()
@@ -596,12 +637,17 @@ def combine_scores_absolute(
     # Fill missing factor scores with 50 (neutral) so one missing factor doesn't zero the whole.
     df = df.fillna(50.0)
 
-    wsum = sum(weights.values())
+    # Pull volatility weight if configured (default 0 for backward compat)
+    vol_w = float(weights.get("volatility", 0))
+    wsum = (weights["momentum"] + weights["supply_demand"]
+            + weights["quality"] + weights["mean_reversion"] + vol_w)
+
     df["base_score"] = (
         df.get("momentum_score", 50) * weights["momentum"]
         + df.get("supply_demand_score", 50) * weights["supply_demand"]
         + df.get("quality_score", 50) * weights["quality"]
         + df.get("mean_reversion_score", 50) * weights["mean_reversion"]
+        + df.get("volatility_score", 50) * vol_w
     ) / wsum
 
     # Top-of-day bonus

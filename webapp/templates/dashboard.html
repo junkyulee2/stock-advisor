@@ -146,7 +146,7 @@
 
 {# --- HOLDINGS preview --- #}
 {% if holdings %}
-<div class="panel" style="margin-bottom:24px;">
+<div class="panel desktop-only" style="margin-bottom:24px;">
   <div class="panel-head">
     <div>
       <h3>💼 보유 종목 (Top 5)</h3>
@@ -194,6 +194,35 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+
+{# Mobile: simple card list, no table #}
+<div class="mobile-only" style="margin-bottom:18px;">
+  <div class="panel-head" style="padding:0 4px 10px;background:transparent;border:0;">
+    <div>
+      <h3 style="font-size:15px;font-weight:800;">💼 보유 종목 (Top 5)</h3>
+      <div class="sub">총 {{ holdings|length }}종목 보유 중</div>
+    </div>
+    <a class="btn-sm" href="/holdings">전체 →</a>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    {% for h in holdings[:5] %}
+    <a href="/holdings" style="text-decoration:none;color:inherit;">
+      <div class="hcard" style="padding:12px 14px;">
+        <div class="hcard-top" style="margin-bottom:8px;">
+          <div class="hcard-info">
+            <div class="hcard-name">{{ h.name }}</div>
+            <div class="hcard-tk">{{ h.ticker }} · {{ h.qty }}주 · ₩{{ h.market_value|num }}</div>
+          </div>
+          <div class="hcard-pl">
+            <div class="hcard-pl-num mono {% if h.pnl_krw >= 0 %}up{% else %}down{% endif %}">{{ h.pnl_krw|krw_signed }}</div>
+            <div class="hcard-pl-pct {% if h.pnl_pct >= 0 %}up{% else %}down{% endif %}">{{ h.pnl_pct|pct }}</div>
+          </div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
   </div>
 </div>
 {% endif %}

@@ -171,9 +171,12 @@ def act_refresh(request: Request):
     return _toast_response(ok, msg)
 
 
-@app.get("/healthz")
+@app.api_route("/healthz", methods=["GET", "HEAD"])
 def healthz():
-    """Lightweight liveness ping (no GitHub/FDR calls). For UptimeRobot keepalive."""
+    """Lightweight liveness ping (no GitHub/FDR calls). For UptimeRobot keepalive.
+
+    Accepts both GET and HEAD — UptimeRobot defaults to HEAD requests.
+    """
     return JSONResponse({"ok": True, "service": "chungyu-stock", "version": "2.0"})
 
 

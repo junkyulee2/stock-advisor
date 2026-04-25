@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>📜 거래 내역</h1>
+    <h1><span class="title-icon">📜</span> 거래 내역</h1>
     <div class="crumb">{{ today_str }} · 총 {{ trade_count }}건</div>
   </div>
 </div>
@@ -20,7 +20,8 @@
 </div>
 {% else %}
 
-<div class="panel">
+{# ====== DESKTOP TABLE ====== #}
+<div class="panel desktop-only">
   <div class="panel-head">
     <h3>최근 거래</h3>
     <div class="sub">최신 {{ trades|length }}건 · 날짜 내림차순</div>
@@ -72,6 +73,37 @@
       </tbody>
     </table>
   </div>
+</div>
+
+{# ====== MOBILE CARD STACK ====== #}
+<div class="mobile-only" style="display:flex;flex-direction:column;gap:8px;">
+  {% for t in trades %}
+  <div class="tcard">
+    <div class="tcard-top">
+      <div class="tcard-info">
+        <div class="tcard-name">
+          {% if t.action == 'buy' %}<span class="badge b-buy">매수</span>
+          {% elif t.action == 'sell' %}<span class="badge b-watch">매도</span>
+          {% elif t.action == 'add' %}<span class="badge b-hold">추가매수</span>
+          {% else %}<span class="badge b-flat">{{ t.action }}</span>{% endif %}
+          <span style="margin-left:6px;">{{ t.name }}</span>
+        </div>
+        <div class="tcard-tk">{{ t.ticker }} · {{ t.exit_date or t.entry_date or '-' }}</div>
+      </div>
+      {% if t.action == 'sell' and t.pnl_krw is defined %}
+      <div class="tcard-pl">
+        <div class="mono {% if t.pnl_krw >= 0 %}up{% else %}down{% endif %}" style="font-weight:800;">{{ t.pnl_krw|int|krw_signed }}</div>
+        <div class="tcard-sub {% if t.pnl_pct >= 0 %}up{% else %}down{% endif %}">{{ t.pnl_pct|pct }}</div>
+      </div>
+      {% endif %}
+    </div>
+    <div class="tcard-grid">
+      <div><span class="dim">수량</span><b class="mono">{{ t.qty }}주</b></div>
+      <div><span class="dim">가격</span><b class="mono">₩{{ (t.price|float)|int|num }}</b></div>
+      <div><span class="dim">{% if t.action == 'sell' %}매도금{% else %}매수금{% endif %}</span><b class="mono">₩{{ ((t.proceeds_krw if t.action == 'sell' else t.cost_krw)|default(0))|int|num }}</b></div>
+    </div>
+  </div>
+  {% endfor %}
 </div>
 
 {% endif %}

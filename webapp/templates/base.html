@@ -3,9 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>{% block title %}춘규주식{% endblock %}</title>
+<title>{% block title %}춘규주식어플{% endblock %}</title>
 <link rel="stylesheet" href="/static/css/app.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%235750f1%22/><text x=%2232%22 y=%2244%22 font-size=%2236%22 text-anchor=%22middle%22 fill=%22white%22 font-weight=%22900%22 font-family=%22sans-serif%22>춘</text></svg>">
+
+{# PWA: home-screen install + native-app feel #}
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#5750f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="춘규주식">
+<link rel="icon" type="image/png" sizes="192x192" href="/static/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/static/icons/icon-512.png">
+<link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
+
 <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 </head>
 <body>

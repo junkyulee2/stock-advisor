@@ -5,8 +5,8 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>💼 보유 종목</h1>
-    <div class="crumb">{{ today_str }} · 총 {{ holdings|length }}종목 / {{ max_positions }}슬롯</div>
+    <h1><span class="title-icon">💼</span> 보유 종목</h1>
+    <div class="crumb">{{ today_str }} · {{ holdings|length }}종목 / {{ max_positions }}슬롯</div>
   </div>
 </div>
 
@@ -47,7 +47,8 @@
 </section>
 
 {# Cards on mobile, table on desktop #}
-<div class="panel">
+{# ====== DESKTOP TABLE ====== #}
+<div class="panel desktop-only">
   <div class="panel-head">
     <h3>전체 보유</h3>
     <div class="sub">{{ kpis.open_positions }}종목 · 수익률 내림차순</div>
@@ -61,7 +62,7 @@
           <th>수량</th>
           <th>평가금액</th>
           <th>손익</th>
-          <th>매수점수</th>
+          <th>점수</th>
           <th>액션</th>
         </tr>
       </thead>
@@ -88,8 +89,14 @@
           </td>
           <td><span class="badge b-hold">{{ h.entry_score|score }}점</span></td>
           <td>
-            <div style="display:flex;gap:6px;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
               {% if cloud_mode %}
+              <form hx-post="/actions/add" hx-target="#toast-region" hx-swap="innerHTML" style="display:inline;"
+                    hx-confirm="{{ h.name }} 10만원 추가 매수할까요?">
+                <input type="hidden" name="ticker" value="{{ h.ticker }}">
+                <input type="hidden" name="amount_krw" value="100000">
+                <button class="btn-sm" type="submit" title="현재가로 +10만원 추가">+ 10만</button>
+              </form>
               <form hx-post="/actions/sell" hx-target="#toast-region" hx-swap="innerHTML" style="display:inline;">
                 <input type="hidden" name="ticker" value="{{ h.ticker }}">
                 <input type="hidden" name="ratio" value="0.5">
@@ -113,6 +120,53 @@
       </tbody>
     </table>
   </div>
+</div>
+
+{# ====== MOBILE CARD STACK ====== #}
+<div class="mobile-only" style="display:flex;flex-direction:column;gap:10px;">
+  {% for h in holdings %}
+  <div class="hcard">
+    <div class="hcard-top">
+      <div class="hcard-info">
+        <div class="hcard-name">{{ h.name }}</div>
+        <div class="hcard-tk">{{ h.ticker }} · 매수 {{ h.entry_date }} · <span class="badge b-hold">{{ h.entry_score|score }}점</span></div>
+      </div>
+      <div class="hcard-pl">
+        <div class="hcard-pl-num mono {% if h.pnl_krw >= 0 %}up{% else %}down{% endif %}">{{ h.pnl_krw|krw_signed }}</div>
+        <div class="hcard-pl-pct {% if h.pnl_pct >= 0 %}up{% else %}down{% endif %}">{{ h.pnl_pct|pct }}</div>
+      </div>
+    </div>
+    <div class="hcard-grid">
+      <div><span class="dim">매수가</span><b class="mono">₩{{ h.entry_price|int|num }}</b></div>
+      <div><span class="dim">현재가</span><b class="mono">₩{{ h.current_price|int|num }}</b></div>
+      <div><span class="dim">수량</span><b class="mono">{{ h.qty }}주</b></div>
+      <div><span class="dim">평가</span><b class="mono">₩{{ h.market_value|num }}</b></div>
+    </div>
+    {% if cloud_mode %}
+    <div class="hcard-actions">
+      <form hx-post="/actions/add" hx-target="#toast-region" hx-swap="innerHTML"
+            hx-confirm="{{ h.name }} 10만원 추가 매수할까요?">
+        <input type="hidden" name="ticker" value="{{ h.ticker }}">
+        <input type="hidden" name="amount_krw" value="100000">
+        <button type="submit" class="hbtn hbtn-add">+ 10만 추가</button>
+      </form>
+      <form hx-post="/actions/sell" hx-target="#toast-region" hx-swap="innerHTML">
+        <input type="hidden" name="ticker" value="{{ h.ticker }}">
+        <input type="hidden" name="ratio" value="0.5">
+        <input type="hidden" name="reason" value="manual_half">
+        <button type="submit" class="hbtn">50% 매도</button>
+      </form>
+      <form hx-post="/actions/sell" hx-target="#toast-region" hx-swap="innerHTML"
+            hx-confirm="{{ h.name }} 전량 매도할까요?">
+        <input type="hidden" name="ticker" value="{{ h.ticker }}">
+        <input type="hidden" name="ratio" value="1.0">
+        <input type="hidden" name="reason" value="manual_full">
+        <button type="submit" class="hbtn hbtn-sell">전량 매도</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
 </div>
 
 {% endif %}

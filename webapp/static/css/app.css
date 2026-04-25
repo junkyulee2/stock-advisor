@@ -97,7 +97,15 @@ button { font-family: inherit; }
 /* ============ MAIN ============ */
 main { padding: 28px 32px 80px; min-width: 0; }
 .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-.page-head h1 { font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
+.page-head h1 { font-size: 22px; font-weight: 800; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+.title-icon {
+  display: inline-grid; place-items: center;
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--purple) 100%);
+  font-size: 20px;
+  box-shadow: 0 4px 12px rgba(87, 80, 241, .32);
+  flex-shrink: 0;
+}
 .page-head .crumb { font-size: 12.5px; color: var(--ink-3); margin-top: 4px; }
 .page-head .actions { display: flex; gap: 10px; align-items: center; }
 
@@ -391,3 +399,77 @@ table.t tr:hover td { background: var(--line-2); }
 .b { font-weight: 700; }
 .gap-y > * + * { margin-top: 14px; }
 .section-title { font-size: 15px; font-weight: 800; letter-spacing: -.01em; margin: 24px 0 12px; }
+
+/* ============ DESKTOP/MOBILE TOGGLES ============ */
+.mobile-only { display: none; }
+.desktop-only { display: block; }
+@media (max-width: 900px) {
+  .mobile-only { display: block; }
+  .desktop-only { display: none !important; }
+}
+
+/* ============ HOLDINGS MOBILE CARD ============ */
+.hcard {
+  background: var(--surface); border-radius: var(--r);
+  padding: 14px 16px; box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+}
+.hcard-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 12px; margin-bottom: 10px;
+}
+.hcard-info { min-width: 0; flex: 1; }
+.hcard-name { font-size: 15px; font-weight: 800; }
+.hcard-tk { font-size: 11px; color: var(--ink-3); margin-top: 2px; line-height: 1.6; }
+.hcard-pl { text-align: right; flex-shrink: 0; }
+.hcard-pl-num { font-size: 14px; font-weight: 800; }
+.hcard-pl-pct { font-size: 11.5px; font-weight: 700; margin-top: 2px; }
+.hcard-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px;
+  padding: 10px 0; border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+  margin-bottom: 10px;
+}
+.hcard-grid > div { font-size: 11px; color: var(--ink-3); font-weight: 600; }
+.hcard-grid > div b {
+  display: block; font-size: 13px; font-weight: 700;
+  color: var(--ink); margin-top: 2px;
+}
+.hcard-actions {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+}
+.hcard-actions form { display: contents; }
+.hbtn {
+  width: 100%; padding: 10px 8px;
+  font-size: 12px; font-weight: 700;
+  border-radius: 9px; border: 1px solid var(--line);
+  background: #fff; color: var(--ink-2);
+  font-family: inherit; cursor: pointer;
+}
+.hbtn-add { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+.hbtn-sell { border-color: var(--up); color: var(--up); }
+
+/* ============ HISTORY MOBILE CARD ============ */
+.tcard {
+  background: var(--surface); border-radius: var(--r);
+  padding: 12px 14px; box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+}
+.tcard-top {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 10px; margin-bottom: 8px;
+}
+.tcard-info { min-width: 0; flex: 1; }
+.tcard-name { font-size: 13.5px; font-weight: 700; display: flex; align-items: center; }
+.tcard-tk { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+.tcard-pl { text-align: right; flex-shrink: 0; }
+.tcard-sub { font-size: 11px; font-weight: 700; margin-top: 1px; }
+.tcard-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 10px;
+  padding-top: 8px; border-top: 1px dashed var(--line);
+}
+.tcard-grid > div { font-size: 10.5px; color: var(--ink-3); font-weight: 600; }
+.tcard-grid > div b {
+  display: block; font-size: 12px; font-weight: 700;
+  color: var(--ink); margin-top: 1px;
+}

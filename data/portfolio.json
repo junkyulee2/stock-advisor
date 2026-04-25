@@ -59,6 +59,21 @@
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "mode": "simulation"
+    },
+    "036540": {
+      "ticker": "036540",
+      "name": "SFA반도체",
+      "entry_price": 9640.0,
+      "entry_date": "2026-04-25",
+      "qty": 5,
+      "initial_qty": 5,
+      "cost_krw": 48200.0,
+      "entry_score": 80.7267089264,
+      "sector": null,
+      "highest_price": 9640.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0,
+      "mode": "simulation"
     }
   },
   "updated_at": "2026-04-25"

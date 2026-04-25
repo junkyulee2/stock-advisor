@@ -44,6 +44,21 @@
       "realized_pnl_krw": 0,
       "last_added_date": "2026-04-25",
       "add_count": 1
+    },
+    "375500": {
+      "ticker": "375500",
+      "name": "DL이앤씨",
+      "entry_price": 99000.0,
+      "entry_date": "2026-04-25",
+      "qty": 1,
+      "initial_qty": 1,
+      "cost_krw": 99000.0,
+      "entry_score": 81.628986192,
+      "sector": null,
+      "highest_price": 99000.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0,
+      "mode": "simulation"
     }
   },
   "updated_at": "2026-04-25"

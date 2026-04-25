@@ -50,6 +50,16 @@
       "cost_krw": 99000.0,
       "entry_score": 81.628986192,
       "entry_date": "2026-04-25"
+    },
+    {
+      "ticker": "036540",
+      "name": "SFA반도체",
+      "action": "buy",
+      "qty": 5,
+      "price": 9640.0,
+      "cost_krw": 48200.0,
+      "entry_score": 80.7267089264,
+      "entry_date": "2026-04-25"
     }
   ]
 }

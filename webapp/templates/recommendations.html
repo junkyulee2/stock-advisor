@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_macros.html" import stock_card with context %}
+
+{% block title %}오늘의 추천 · 춘규주식{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>🎯 오늘의 추천</h1>
+    <div class="crumb">{{ today_str }} · 점수: {{ scores_date }} · 마지노선 {{ min_score }}점</div>
+  </div>
+  <div class="actions">
+    {% if cloud_mode %}
+    <form hx-post="/actions/refresh" hx-target="#toast-region" hx-swap="innerHTML" style="display:inline">
+      <button class="btn-primary" type="submit">🔄 점수 재계산</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if not recommendations %}
+<div class="alert">
+  <div class="alert-ic">🛡️</div>
+  <div class="alert-txt">
+    <b>오늘은 매수 가능 종목이 없습니다.</b>
+    {% if top_score > 0 %}오늘 최고점은 <b>{{ top_score|score }}점</b>입니다.{% endif %}
+    {{ min_score }}점 마지노선이 절대 기준이라 미달 종목은 매수 버튼이 노출되지 않습니다.
+    아래는 차순위 참고 (매수 불가).
+  </div>
+</div>
+{% endif %}
+
+{% if recommendations %}
+<h3 class="section-title">매수 가능 ({{ recommendations|length }}개)</h3>
+<div class="cards">
+  {% for rec in recommendations %}
+    {{ stock_card(rec, buyable=True) }}
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if references %}
+<h3 class="section-title">📋 차순위 참고 (매수 불가)</h3>
+<div class="cards">
+  {% for ref in references %}
+    {{ stock_card(ref, buyable=False, muted=True) }}
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not recommendations and not references %}
+<div class="panel">
+  <div class="empty">
+    <div class="empty-emoji">🌧️</div>
+    <div class="empty-title">점수 데이터가 없습니다</div>
+    <div class="empty-sub">GitHub Actions 실행 또는 <code>python run_daily.py</code> 후 다시 확인하세요.</div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

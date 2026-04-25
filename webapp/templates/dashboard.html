@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% from "_macros.html" import stock_card, stat_card, pill_badge with context %}
+
+{% block title %}대시보드 · 춘규주식{% endblock %}
+
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1>대시보드</h1>
+    <div class="crumb">홈 · {{ today_str }} · 점수: {{ scores_date }}</div>
+  </div>
+  <div class="actions">
+    {% if cloud_mode %}
+    <form hx-post="/actions/refresh" hx-target="#toast-region" hx-swap="innerHTML" style="display:inline">
+      <button class="btn-primary" type="submit">🔄 점수 재계산</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{# --- ALERT for empty recommendations --- #}
+{% if not recommendations %}
+<div class="alert">
+  <div class="alert-ic">🛡️</div>
+  <div class="alert-txt">
+    <b>오늘은 새로 살 거 없음.</b>
+    {{ min_score }}점 이상 신규 종목이 없어요.
+    {% if top_score > 0 %}
+      오늘 최고점은 <b>{{ top_score|score }}점</b>이고,
+    {% endif %}
+    마지노선 미달이라 매수는 쉬는 날입니다.
+    {% if references %}아래 차순위 {{ references|length }}개는 참고용이며 매수 버튼이 없습니다.{% endif %}
+  </div>
+</div>
+{% endif %}
+
+{# --- STATS --- #}
+<section class="stats">
+  {{ stat_card('총 평가금액',
+               kpis.total_value|krw,
+               sub='시뮬레이션 + 실현',
+               ic='💰', ic_color='primary') }}
+
+  {{ stat_card('실현 손익 (누적)',
+               kpis.realized|krw_signed,
+               sub='완료된 매도 합산',
+               ic='📈', ic_color='green') }}
+
+  {{ stat_card('보유 / 슬롯',
+               kpis.open_positions|string + ' / ' + max_positions|string,
+               sub=(max_positions - kpis.open_positions)|string + '개 여유',
+               ic='💼', ic_color='orange') }}
+
+  {{ stat_card('오늘 최고 점수',
+               (top_score|score) + ' 점',
+               sub=('80점 이상 ' + (recommendations|length|string) + '개' if recommendations else min_score|string + '점 마지노선 미달'),
+               ic='🎯', ic_color='yellow') }}
+</section>
+
+{# --- ROW: chart + picks --- #}
+<section class="row-2">
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>포트폴리오 추이</h3>
+        <div class="sub">최근 30거래일 평가금액 변동</div>
+      </div>
+      {% if chart.points %}
+      <div class="dim" style="font-size:12px;">
+        ₩{{ chart.min|num }} ~ ₩{{ chart.max|num }}
+      </div>
+      {% endif %}
+    </div>
+    <div class="chart-body">
+      {% if chart.points %}
+      <div class="legend">
+        <span><span class="legend-dot" style="background:var(--primary);"></span>평가금액 추이</span>
+        <span class="dim">현재 ₩{{ chart.current|num }}</span>
+      </div>
+      <svg class="chart-svg" viewBox="0 0 700 260" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="chart-grad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#5750f1" stop-opacity=".25"/>
+            <stop offset="100%" stop-color="#5750f1" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <g stroke="#e2e8f0" stroke-width="1">
+          <line x1="0" x2="700" y1="10" y2="10" stroke-dasharray="3 3"/>
+          <line x1="0" x2="700" y1="130" y2="130" stroke-dasharray="3 3"/>
+          <line x1="0" x2="700" y1="250" y2="250" stroke-dasharray="3 3"/>
+        </g>
+        {% set pts = chart.points %}
+        <path d="M {{ pts[0][0] }} 250
+                 {% for p in pts %}L {{ p[0] }} {{ p[1] }} {% endfor %}
+                 L {{ pts[-1][0] }} 250 Z"
+              fill="url(#chart-grad)"/>
+        <path d="M {{ pts[0][0] }} {{ pts[0][1] }}
+                 {% for p in pts[1:] %}L {{ p[0] }} {{ p[1] }} {% endfor %}"
+              fill="none" stroke="#5750f1" stroke-width="2.5"/>
+        <circle cx="{{ pts[-1][0] }}" cy="{{ pts[-1][1] }}" r="5" fill="#5750f1" stroke="#fff" stroke-width="2"/>
+        <circle cx="{{ pts[-1][0] }}" cy="{{ pts[-1][1] }}" r="10" fill="#5750f1" opacity=".15"/>
+      </svg>
+      {% else %}
+      <div class="chart-empty">
+        💡 보유 종목이 없거나 가격 데이터를 가져올 수 없습니다
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h3>{% if recommendations %}🎯 오늘의 추천{% else %}📋 차순위 (참고){% endif %}</h3>
+        <div class="sub">
+          {% if recommendations %}{{ min_score }}점 이상 · 보유 제외
+          {% else %}{{ min_score }}점 미만 · 매수 불가{% endif %}
+        </div>
+      </div>
+      <a class="btn-sm" href="/recommendations">전체 →</a>
+    </div>
+    <div class="picks">
+      {% set list = recommendations or references %}
+      {% if list %}
+        {% for rec in list[:5] %}
+        <div class="pick">
+          <div class="pick-num">{{ rec.rank }}</div>
+          <div class="pick-info">
+            <div class="pick-name">{{ rec.name }}</div>
+            <div class="pick-tk">{{ rec.ticker }} · {{ rec.market or '-' }} · ₩{{ rec.close|int|num }}</div>
+          </div>
+          <div>
+            <div class="pick-score mono">{{ rec.total_score|score }}</div>
+            <div class="pick-chg muted">{{ pill_badge(rec.delta) }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="pick-empty">점수 데이터 없음 · GitHub Actions 실행 대기</div>
+      {% endif %}
+    </div>
+  </div>
+
+</section>
+
+{# --- HOLDINGS preview --- #}
+{% if holdings %}
+<div class="panel" style="margin-bottom:24px;">
+  <div class="panel-head">
+    <div>
+      <h3>💼 보유 종목 (Top 5)</h3>
+      <div class="sub">총 {{ holdings|length }}종목 보유 중</div>
+    </div>
+    <a class="btn-sm" href="/holdings">전체 →</a>
+  </div>
+  <div class="t-wrap">
+    <table class="t">
+      <thead>
+        <tr>
+          <th>종목</th>
+          <th>매수 / 현재가</th>
+          <th>수량</th>
+          <th>평가금액</th>
+          <th>손익</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in holdings[:5] %}
+        <tr>
+          <td>
+            <div class="t-name">{{ h.name }}</div>
+            <div class="t-sub">{{ h.ticker }} · {{ h.entry_date }}</div>
+          </td>
+          <td>
+            <div class="mono">₩{{ h.entry_price|int|num }}</div>
+            <div class="t-sub mono">→ ₩{{ h.current_price|int|num }}</div>
+          </td>
+          <td class="mono">{{ h.qty }}주</td>
+          <td class="mono">₩{{ h.market_value|num }}</td>
+          <td>
+            <div class="mono {% if h.pnl_krw >= 0 %}up{% else %}down{% endif %}">
+              {{ h.pnl_krw|krw_signed }}
+            </div>
+            <div class="t-sub mono {% if h.pnl_pct >= 0 %}up{% else %}down{% endif %}">
+              {{ h.pnl_pct|pct }}
+            </div>
+          </td>
+          <td>
+            <a class="btn-sm" href="/holdings">관리</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# --- REFERENCE CARDS section (shown when no recommendations) --- #}
+{% if references and not recommendations %}
+<h3 class="section-title">📋 차순위 참고 카드</h3>
+<div class="cards">
+  {% for ref in references %}
+    {{ stock_card(ref, buyable=False, muted=True) }}
+  {% endfor %}
+</div>
+{% endif %}
+
+{# --- RECOMMENDATION CARDS section (shown when recommendations exist) --- #}
+{% if recommendations %}
+<h3 class="section-title">🎯 매수 가능 종목 ({{ recommendations|length }}개)</h3>
+<div class="cards">
+  {% for rec in recommendations %}
+    {{ stock_card(rec, buyable=True, muted=False) }}
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

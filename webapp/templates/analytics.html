@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}성과 분석 · 춘규주식{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>📈 성과 분석</h1>
+    <div class="crumb">{{ today_str }}</div>
+  </div>
+</div>
+
+<section class="stats">
+  <div class="stat">
+    <div class="stat-ic ic-primary">💰</div>
+    <div class="stat-label">총 평가금액</div>
+    <div class="stat-value mono">{{ kpis.total_value|krw }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-ic ic-green">✅</div>
+    <div class="stat-label">실현 손익</div>
+    <div class="stat-value mono {% if kpis.realized >= 0 %}up{% else %}down{% endif %}">{{ kpis.realized|krw_signed }}</div>
+    <div class="stat-sub">{{ kpis.sell_count }}회 매도</div>
+  </div>
+  <div class="stat">
+    <div class="stat-ic ic-orange">🎯</div>
+    <div class="stat-label">승률</div>
+    <div class="stat-value mono">{{ kpis.win_rate|round(1) }}%</div>
+    <div class="stat-sub">{{ kpis.wins }}승 {{ kpis.losses }}패</div>
+  </div>
+  <div class="stat">
+    <div class="stat-ic ic-purple">📊</div>
+    <div class="stat-label">미실현 손익</div>
+    <div class="stat-value mono {% if kpis.unrealized >= 0 %}up{% else %}down{% endif %}">{{ kpis.unrealized|krw_signed }}</div>
+    <div class="stat-sub">{{ kpis.open_positions }}종목 보유</div>
+  </div>
+</section>
+
+<div class="row-2">
+  <div class="panel">
+    <div class="panel-head">
+      <h3>점수 분포</h3>
+      <div class="sub">오늘 스캔된 전체 종목</div>
+    </div>
+    <div style="padding:18px 22px">
+      {% for label, count in score_bins.items() %}
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:600;color:var(--ink-2);margin-bottom:4px;">
+          <span>{{ label }}점</span><span class="mono">{{ count }}개</span>
+        </div>
+        <div class="scard-bar-track">
+          {% set total = score_bins.values()|sum %}
+          {% set width = (count / total * 100) if total > 0 else 0 %}
+          {% set color = 'var(--primary)' if label == '95+' else ('var(--green)' if label.startswith('9') or label == '85-89' else ('var(--yellow)' if label == '80-84' else 'var(--ink-3)')) %}
+          <div class="scard-bar-fill" style="width:{{ width }}%;background:{{ color }};"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h3>전략 요약</h3>
+      <div class="sub">춘규주식 v2.0</div>
+    </div>
+    <div style="padding:18px 22px;font-size:13px;color:var(--ink-2);line-height:1.8">
+      <p><b>4팩터 모델</b><br>
+        모멘텀 40% · 수급 30% · 퀄리티 20% · 역추세 10%
+      </p>
+      <p style="margin-top:14px;"><b>매수 마지노선</b><br>
+        {{ min_score }}점 (절대 기준 — 미달 시 매수 안 함)
+      </p>
+      <p style="margin-top:14px;"><b>슬롯</b><br>
+        최대 {{ max_positions }}개 동시 보유
+      </p>
+      <p style="margin-top:14px;"><b>매도 규칙</b><br>
+        하드: −15% 손절 / +20% 익절 50% / 20일 시간 청산<br>
+        소프트: −8% 트레일링 / 매도점수 60↑ 50% / 80↑ 100%
+      </p>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

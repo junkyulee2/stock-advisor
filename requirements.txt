@@ -1,5 +1,4 @@
-# Minimal requirements for Streamlit Cloud web deploy.
-# For desktop app, also install requirements-desktop.txt.
+# 춘규주식 v2.0 — FastAPI web app (replaces Streamlit)
 finance-datareader>=0.9.100
 pandas>=2.0.0
 numpy>=1.24.0
@@ -8,6 +7,10 @@ beautifulsoup4>=4.12.0
 lxml>=5.0.0
 PyYAML>=6.0
 python-dateutil>=2.8.2
-streamlit>=1.30.0
-plotly>=5.18.0
 PyGithub>=2.1.0
+
+# Web app
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+jinja2>=3.1.3
+python-multipart>=0.0.9

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}거래 내역 · 춘규주식{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>📜 거래 내역</h1>
+    <div class="crumb">{{ today_str }} · 총 {{ trade_count }}건</div>
+  </div>
+</div>
+
+{% if not trades %}
+<div class="panel">
+  <div class="empty">
+    <div class="empty-emoji">📭</div>
+    <div class="empty-title">거래 내역이 없습니다</div>
+    <div class="empty-sub">매수/매도가 발생하면 여기 기록됩니다.</div>
+  </div>
+</div>
+{% else %}
+
+<div class="panel">
+  <div class="panel-head">
+    <h3>최근 거래</h3>
+    <div class="sub">최신 {{ trades|length }}건 · 날짜 내림차순</div>
+  </div>
+  <div class="t-wrap">
+    <table class="t">
+      <thead>
+        <tr>
+          <th>날짜</th>
+          <th>종목</th>
+          <th>구분</th>
+          <th>수량</th>
+          <th>가격</th>
+          <th>금액</th>
+          <th>손익</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in trades %}
+        <tr>
+          <td class="mono">{{ t.exit_date or t.entry_date or '-' }}</td>
+          <td>
+            <div class="t-name">{{ t.name }}</div>
+            <div class="t-sub">{{ t.ticker }}</div>
+          </td>
+          <td>
+            {% if t.action == 'buy' %}<span class="badge b-buy">매수</span>
+            {% elif t.action == 'sell' %}<span class="badge b-watch">매도</span>
+            {% elif t.action == 'add' %}<span class="badge b-hold">추가매수</span>
+            {% else %}<span class="badge b-flat">{{ t.action }}</span>
+            {% endif %}
+          </td>
+          <td class="mono">{{ t.qty }}주</td>
+          <td class="mono">₩{{ (t.price|float)|int|num }}</td>
+          <td class="mono">
+            {% if t.action == 'sell' %}₩{{ (t.proceeds_krw|default(0))|int|num }}
+            {% else %}₩{{ (t.cost_krw|default(0))|int|num }}{% endif %}
+          </td>
+          <td>
+            {% if t.action == 'sell' and t.pnl_krw is defined %}
+              <div class="mono {% if t.pnl_krw >= 0 %}up{% else %}down{% endif %}">{{ t.pnl_krw|int|krw_signed }}</div>
+              <div class="t-sub mono {% if t.pnl_pct >= 0 %}up{% else %}down{% endif %}">{{ t.pnl_pct|pct }}</div>
+            {% else %}
+              <span class="dim">-</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}

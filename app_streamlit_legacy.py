@@ -53,6 +53,7 @@ PORTFOLIO_PATH = PROJECT_ROOT / CONFIG["paths"]["portfolio"]
 HISTORY_PATH = PROJECT_ROOT / CONFIG["paths"]["history"]
 SCORES_DIR = PROJECT_ROOT / CONFIG["paths"]["scores_dir"]
 CLOUD_MODE = cloud_store.is_configured()
+MIN_SCORE_TO_BUY = int(CONFIG["portfolio_limits"]["min_score_to_buy"])
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
@@ -630,7 +631,7 @@ def render_stock_card(rec: dict, held: bool = False, rank_badge: str = ""):
     elif amount > 0:
         pill = f'<span class="pill pill-green">배정 {amount:,}원</span>'
     else:
-        pill = '<span class="pill pill-gray">85점 미달</span>'
+        pill = f'<span class="pill pill-gray">{MIN_SCORE_TO_BUY}점 미달</span>'
     if rank_badge:
         pill = f'{rank_badge} {pill}'
 
@@ -861,13 +862,31 @@ with tab_rec:
                           & (~df["ticker"].isin(held_tickers))].head(5)
 
             if fresh_df.empty:
+                # Find today's top 2 sub-threshold picks (excluding held) for reference
+                ref_df = df[~df["ticker"].isin(held_tickers)].head(2)
+                top_score = float(ref_df["total_score"].iloc[0]) if not ref_df.empty else 0.0
+
                 st.markdown(
-                    '<div class="empty-panel"><div class="empty-emoji">🛡️</div>'
-                    '<div style="color:#1a1a1a;font-weight:700;">오늘은 새로 살 거 없음</div>'
-                    '<div style="margin-top:6px;">85점 이상 신규 종목 없음 · '
-                    '보유 종목 유지가 오늘의 답입니다.</div></div>',
+                    f'<div class="empty-panel"><div class="empty-emoji">🛡️</div>'
+                    f'<div style="color:#1a1a1a;font-weight:700;">오늘은 새로 살 거 없음</div>'
+                    f'<div style="margin-top:6px;">{min_score}점 이상 신규 종목 없음 · '
+                    f'오늘 최고점 <b>{top_score:.1f}점</b> · '
+                    f'보유 종목 유지가 오늘의 답입니다.</div></div>',
                     unsafe_allow_html=True,
                 )
+
+                if not ref_df.empty:
+                    st.markdown(
+                        '<div style="font-size:13px;font-weight:700;color:#666;'
+                        'margin:18px 0 8px;">📋 차순위 참고 (매수 불가)</div>',
+                        unsafe_allow_html=True,
+                    )
+                    for idx, row in ref_df.iterrows():
+                        rec = row.to_dict()
+                        ticker = rec["ticker"]
+                        today_rank = int(idx) + 1
+                        badge = _rank_badge(ticker, today_rank, prev_rank_map)
+                        render_stock_card(rec, held=False, rank_badge=badge)
             else:
                 for idx, row in fresh_df.iterrows():
                     rec = row.to_dict()

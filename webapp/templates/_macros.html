@@ -1,0 +1,106 @@
+{# Shared template components #}
+
+{% macro stock_card(rec, buyable=False, muted=False) %}
+{% set score = rec.total_score|float %}
+{% set below = score < min_score %}
+<div class="scard {% if muted %}muted{% endif %}">
+  <div class="scard-head">
+    <div>
+      <div class="scard-name">{{ rec.name }}</div>
+      <div class="scard-tk">{{ rec.ticker }} · {{ rec.market or '-' }}</div>
+    </div>
+    {% if buyable %}
+      <span class="badge b-buy">🏆 {{ rec.rank }}위</span>
+    {% else %}
+      <span class="badge b-ref">📋 차순위 {{ rec.rank }}위</span>
+    {% endif %}
+  </div>
+
+  <div class="scard-row">
+    <div class="scard-score {% if below %}below{% endif %} mono">
+      {{ score|score }}<small>점</small>
+    </div>
+    <div class="scard-bar-wrap">
+      <div class="scard-bar-meta">
+        <span>점수</span>
+        <span>마지노선 {{ min_score }}점</span>
+      </div>
+      <div class="scard-bar-track">
+        <div class="scard-bar-fill {% if below %}below{% endif %}"
+             style="width:{{ ([score, 100]|min)|round(1) }}%"></div>
+      </div>
+    </div>
+    <div class="scard-price">
+      <div class="num mono">₩{{ rec.close|int|num }}</div>
+      {% if rec.amount_krw %}
+        <div class="chg muted mono">배정 {{ (rec.amount_krw / 10000)|int }}만원</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="factors">
+    <div class="factor">
+      <div class="factor-label">모멘텀</div>
+      <div class="factor-row">
+        <div class="factor-val">{{ rec.momentum_score|default(0)|float|round|int }}</div>
+        <div class="factor-mini"><span style="width:{{ rec.momentum_score|default(0)|float|round|int }}%;background:var(--green);"></span></div>
+      </div>
+    </div>
+    <div class="factor">
+      <div class="factor-label">수급</div>
+      <div class="factor-row">
+        <div class="factor-val">{{ rec.supply_demand_score|default(0)|float|round|int }}</div>
+        <div class="factor-mini"><span style="width:{{ rec.supply_demand_score|default(0)|float|round|int }}%;background:#3b82f6;"></span></div>
+      </div>
+    </div>
+    <div class="factor">
+      <div class="factor-label">퀄리티</div>
+      <div class="factor-row">
+        <div class="factor-val">{{ rec.quality_score|default(0)|float|round|int }}</div>
+        <div class="factor-mini"><span style="width:{{ rec.quality_score|default(0)|float|round|int }}%;background:var(--purple);"></span></div>
+      </div>
+    </div>
+    <div class="factor">
+      <div class="factor-label">역추세</div>
+      <div class="factor-row">
+        <div class="factor-val">{{ rec.mean_reversion_score|default(0)|float|round|int }}</div>
+        <div class="factor-mini"><span style="width:{{ rec.mean_reversion_score|default(0)|float|round|int }}%;background:var(--yellow);"></span></div>
+      </div>
+    </div>
+  </div>
+
+  {% if buyable and cloud_mode %}
+  <form class="scard-actions" hx-post="/actions/buy" hx-target="#toast-region" hx-swap="innerHTML">
+    <input type="hidden" name="ticker" value="{{ rec.ticker }}">
+    <input type="hidden" name="amount_krw" value="{{ rec.amount_krw or 100000 }}">
+    <div class="amt-pills">
+      <button type="button" class="amt-pill {% if rec.amount_krw == 100000 %}on{% endif %}" data-amount="100000">10만</button>
+      <button type="button" class="amt-pill {% if rec.amount_krw == 200000 %}on{% endif %}" data-amount="200000">20만</button>
+      <button type="button" class="amt-pill {% if rec.amount_krw == 300000 or not rec.amount_krw or rec.amount_krw not in [100000, 200000] %}on{% endif %}" data-amount="300000">30만</button>
+    </div>
+    <button type="submit" class="btn-primary">매수 →</button>
+  </form>
+  {% elif buyable and not cloud_mode %}
+  <div class="dim" style="font-size:12px;text-align:center;padding:6px;">로컬 모드 — 매수 비활성</div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+
+{% macro stat_card(label, value, sub=None, ic="📊", ic_color="primary") %}
+<div class="stat">
+  <div class="stat-ic ic-{{ ic_color }}">{{ ic }}</div>
+  <div class="stat-label">{{ label }}</div>
+  <div class="stat-value mono">{{ value }}</div>
+  {% if sub %}<div class="stat-sub">{{ sub|safe }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+
+{% macro pill_badge(delta) %}
+{% if delta.kind == 'up' %}<span class="badge b-up">{{ delta.label }}</span>
+{% elif delta.kind == 'down' %}<span class="badge b-down">{{ delta.label }}</span>
+{% elif delta.kind == 'new' %}<span class="badge b-new">{{ delta.label }}</span>
+{% else %}<span class="badge b-flat">{{ delta.label }}</span>
+{% endif %}
+{% endmacro %}

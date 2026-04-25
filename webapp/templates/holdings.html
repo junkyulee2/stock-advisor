@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}보유 종목 · 춘규주식{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>💼 보유 종목</h1>
+    <div class="crumb">{{ today_str }} · 총 {{ holdings|length }}종목 / {{ max_positions }}슬롯</div>
+  </div>
+</div>
+
+{% if not holdings %}
+<div class="panel">
+  <div class="empty">
+    <div class="empty-emoji">💼</div>
+    <div class="empty-title">보유 종목이 없습니다</div>
+    <div class="empty-sub">오늘의 추천에서 매수해보세요.</div>
+  </div>
+</div>
+{% else %}
+
+{# Stats summary #}
+<section class="stats" style="grid-template-columns:repeat(3,1fr)">
+  <div class="stat">
+    <div class="stat-ic ic-primary">💼</div>
+    <div class="stat-label">평가 금액</div>
+    <div class="stat-value mono">{{ kpis.market_value|krw }}</div>
+    <div class="stat-sub mono">투자원금 {{ (kpis.market_value - kpis.unrealized)|krw }}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-ic {% if kpis.unrealized >= 0 %}ic-green{% else %}ic-pink{% endif %}">📊</div>
+    <div class="stat-label">미실현 손익</div>
+    <div class="stat-value mono {% if kpis.unrealized >= 0 %}up{% else %}down{% endif %}">
+      {{ kpis.unrealized|krw_signed }}
+    </div>
+    <div class="stat-sub {% if kpis.today_change_pct >= 0 %}up{% else %}down{% endif %}">
+      {{ kpis.today_change_pct|pct }}
+    </div>
+  </div>
+  <div class="stat">
+    <div class="stat-ic ic-orange">🎯</div>
+    <div class="stat-label">승률</div>
+    <div class="stat-value mono">{{ kpis.win_rate|round(1) }}%</div>
+    <div class="stat-sub">{{ kpis.wins }}승 {{ kpis.losses }}패</div>
+  </div>
+</section>
+
+{# Cards on mobile, table on desktop #}
+<div class="panel">
+  <div class="panel-head">
+    <h3>전체 보유</h3>
+    <div class="sub">{{ kpis.open_positions }}종목 · 수익률 내림차순</div>
+  </div>
+  <div class="t-wrap">
+    <table class="t">
+      <thead>
+        <tr>
+          <th>종목</th>
+          <th>매수 / 현재가</th>
+          <th>수량</th>
+          <th>평가금액</th>
+          <th>손익</th>
+          <th>매수점수</th>
+          <th>액션</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in holdings %}
+        <tr>
+          <td>
+            <div class="t-name">{{ h.name }}</div>
+            <div class="t-sub">{{ h.ticker }} · {{ h.entry_date }}</div>
+          </td>
+          <td>
+            <div class="mono">₩{{ h.entry_price|int|num }}</div>
+            <div class="t-sub mono">→ ₩{{ h.current_price|int|num }}</div>
+          </td>
+          <td class="mono">{{ h.qty }}주</td>
+          <td class="mono">₩{{ h.market_value|num }}</td>
+          <td>
+            <div class="mono {% if h.pnl_krw >= 0 %}up{% else %}down{% endif %}">
+              {{ h.pnl_krw|krw_signed }}
+            </div>
+            <div class="t-sub mono {% if h.pnl_pct >= 0 %}up{% else %}down{% endif %}">
+              {{ h.pnl_pct|pct }}
+            </div>
+          </td>
+          <td><span class="badge b-hold">{{ h.entry_score|score }}점</span></td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              {% if cloud_mode %}
+              <form hx-post="/actions/sell" hx-target="#toast-region" hx-swap="innerHTML" style="display:inline;">
+                <input type="hidden" name="ticker" value="{{ h.ticker }}">
+                <input type="hidden" name="ratio" value="0.5">
+                <input type="hidden" name="reason" value="manual_half">
+                <button class="btn-sm" type="submit">50% 매도</button>
+              </form>
+              <form hx-post="/actions/sell" hx-target="#toast-region" hx-swap="innerHTML" style="display:inline;"
+                    hx-confirm="{{ h.name }} 전량 매도할까요?">
+                <input type="hidden" name="ticker" value="{{ h.ticker }}">
+                <input type="hidden" name="ratio" value="1.0">
+                <input type="hidden" name="reason" value="manual_full">
+                <button class="btn-sm danger" type="submit">전량</button>
+              </form>
+              {% else %}
+              <span class="dim" style="font-size:11.5px;">로컬</span>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}

@@ -60,6 +60,17 @@
       "cost_krw": 48200.0,
       "entry_score": 80.7267089264,
       "entry_date": "2026-04-25"
+    },
+    {
+      "ticker": "375500",
+      "name": "DL이앤씨",
+      "action": "buy",
+      "type": "add",
+      "qty": 1,
+      "price": 99000.0,
+      "cost_krw": 99000.0,
+      "entry_score": 81.628986192,
+      "entry_date": "2026-04-25"
     }
   ]
 }

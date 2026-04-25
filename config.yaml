@@ -153,7 +153,7 @@ investment_rules:
     amount_krw: 50000
 
 portfolio_limits:
-  max_concurrent_positions: 5
+  max_concurrent_positions: 30
   max_per_sector: 2
   min_score_to_buy: 80
   # Add-to-position (추가 매수 / pyramid)

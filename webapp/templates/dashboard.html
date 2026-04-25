@@ -41,10 +41,19 @@
                sub='시뮬레이션 + 실현',
                ic='💰', ic_color='primary') }}
 
-  {{ stat_card('실현 손익 (누적)',
-               kpis.realized|krw_signed,
-               sub='완료된 매도 합산',
-               ic='📈', ic_color='green') }}
+  {% set total_pnl = kpis.realized + kpis.unrealized %}
+  <div class="stat">
+    <div class="stat-ic {% if total_pnl >= 0 %}ic-green{% else %}ic-pink{% endif %}">📈</div>
+    <div class="stat-label">총 손익 (실현 + 미실현)</div>
+    <div class="stat-value mono {% if total_pnl >= 0 %}up{% else %}down{% endif %}">{{ total_pnl|krw_signed }}</div>
+    <div class="stat-sub">
+      <span class="dim">실현</span>
+      <b class="mono {% if kpis.realized >= 0 %}up{% else %}down{% endif %}">{{ kpis.realized|krw_signed }}</b>
+      <span class="dim" style="margin:0 4px;">·</span>
+      <span class="dim">미실현</span>
+      <b class="mono {% if kpis.unrealized >= 0 %}up{% else %}down{% endif %}">{{ kpis.unrealized|krw_signed }}</b>
+    </div>
+  </div>
 
   {{ stat_card('보유 / 슬롯',
                kpis.open_positions|string + ' / ' + max_positions|string,

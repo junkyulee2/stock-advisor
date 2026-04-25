@@ -5,18 +5,17 @@
 
 {% block content %}
 
-<div class="page-head">
-  <div>
-    <h1><span class="title-icon">🚀</span> 춘규주식어플</h1>
-    <div class="crumb">{{ today_str }} · 점수: {{ scores_date }}</div>
-  </div>
-  <div class="actions">
-    {% if cloud_mode %}
+<div class="app-banner">
+  <span class="app-banner-tag">STOCK ADVISOR</span>
+  <div class="app-banner-title">춘규주식어플</div>
+  <div class="app-banner-sub">{{ today_str }} · 점수 {{ scores_date }} · 보유 {{ kpis.open_positions }}종목 · 최고점 {{ top_score|score }}</div>
+  {% if cloud_mode %}
+  <div class="app-banner-actions">
     <form hx-post="/actions/refresh" hx-target="#toast-region" hx-swap="innerHTML" style="display:inline">
       <button class="btn-primary" type="submit">🔄 점수 재계산</button>
     </form>
-    {% endif %}
   </div>
+  {% endif %}
 </div>
 
 {# --- ALERT for empty recommendations --- #}

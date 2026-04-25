@@ -400,6 +400,63 @@ table.t tr:hover td { background: var(--line-2); }
 .gap-y > * + * { margin-top: 14px; }
 .section-title { font-size: 15px; font-weight: 800; letter-spacing: -.01em; margin: 24px 0 12px; }
 
+/* ============ APP BANNER (dashboard hero) ============ */
+.app-banner {
+  margin: 0 0 22px;
+  background: #0a1428;
+  border-radius: 20px;
+  padding: 24px 24px 22px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.app-banner::before {
+  content: "🚀";
+  position: absolute;
+  right: -12px; bottom: -22px;
+  font-size: 130px; line-height: 1;
+  opacity: .18; transform: rotate(-15deg);
+  pointer-events: none;
+}
+.app-banner-tag {
+  display: inline-block;
+  background: rgba(59, 130, 246, .18);
+  color: #93c5fd;
+  font-size: 11px; font-weight: 800;
+  padding: 4px 12px; border-radius: 999px;
+  letter-spacing: .06em;
+  position: relative; z-index: 1;
+}
+.app-banner-title {
+  font-size: 30px; font-weight: 900;
+  letter-spacing: -.025em; margin-top: 10px;
+  line-height: 1.05;
+  background: linear-gradient(135deg, #bfdbfe, #3b82f6);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  position: relative; z-index: 1;
+}
+.app-banner-sub {
+  font-size: 12.5px; opacity: .72; font-weight: 600;
+  margin-top: 8px; position: relative; z-index: 1;
+}
+.app-banner-actions {
+  margin-top: 16px; position: relative; z-index: 1;
+  display: flex; gap: 8px;
+}
+.app-banner-actions .btn-primary {
+  background: rgba(255, 255, 255, .14);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, .22);
+  box-shadow: none;
+}
+.app-banner-actions .btn-primary:hover {
+  background: rgba(255, 255, 255, .22);
+}
+@media (max-width: 900px) {
+  .app-banner { padding: 22px 20px 20px; border-radius: 18px; margin-bottom: 18px; }
+  .app-banner-title { font-size: 26px; }
+}
+
 /* ============ DESKTOP/MOBILE TOGGLES ============ */
 .mobile-only { display: none; }
 .desktop-only { display: block; }

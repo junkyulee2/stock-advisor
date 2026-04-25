@@ -510,49 +510,54 @@ def compute_quality_absolute(
     return pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame()
 
 
+def _ma_deviation_tier_score(deviation_pct: float) -> float:
+    """5-tier score from current price's deviation vs 20-day moving average.
+
+    deviation_pct > 0  →  price above MA (extended, mean-reversion *short* signal)
+    deviation_pct < 0  →  price below MA (oversold, mean-reversion *long* signal)
+    """
+    if deviation_pct <= -10: return 95.0
+    if deviation_pct <= -5:  return 75.0
+    if deviation_pct <=  5:  return 50.0
+    if deviation_pct <= 10:  return 25.0
+    return 10.0
+
+
 def compute_mean_reversion_absolute(
     price_panel: dict[str, pd.DataFrame],
     config: dict,
 ) -> pd.DataFrame:
-    """Mean reversion: RSI oversold + rebound, plus Bollinger lower bounce."""
-    mr_thr = _abs_cfg(config)["mean_reversion"]
-    sub_cfg = config["scoring"]["mean_reversion"]
-    w_rsi = sub_cfg["rsi_oversold_weight"]
-    w_bb = sub_cfg["bb_lower_touch_weight"]
-    wsum = w_rsi + w_bb
+    """Mean reversion via 20-day MA deviation (5-tier discrete scoring).
 
+    Replaces the old binary RSI-rebound + BB-bounce signal that left ~93% of
+    stocks at neutral 50. Now every stock in the panel gets one of 5 tiers
+    (10/25/50/75/95) based on how far its close is from MA20.
+
+    Also exposes `rsi` and `deviation_pct` in the output for transparency.
+    """
     rows = []
     for ticker, df in price_panel.items():
-        if df.empty or len(df) < 25:
+        if df.empty or len(df) < 21:
             continue
         close = df["close"]
-        rsi = ind.rsi(close)
-        if len(rsi) < 2 or pd.isna(rsi.iloc[-1]):
-            continue
-        rsi_now = float(rsi.iloc[-1])
-        rsi_prev = float(rsi.iloc[-2])
-
-        # Rebounding RSI: bonus when signal present; otherwise neutral (no punish).
-        if rsi_now < 50 and rsi_now > rsi_prev:
-            s_rsi = threshold_score(rsi_now, mr_thr["rsi_when_rebounding"])
-        else:
-            s_rsi = 50.0  # neutral — absence of signal is not a negative
-
-        bb = ind.bollinger_bands(close)
-        bb_lower = bb["bb_lower"].iloc[-1]
+        ma20 = close.rolling(20).mean()
         last_close = float(close.iloc[-1])
-        prev_close = float(close.iloc[-2])
-        if pd.notna(bb_lower) and prev_close <= bb_lower and last_close > prev_close:
-            s_bb = 90.0
-        else:
-            s_bb = 50.0  # neutral baseline
+        last_ma20 = float(ma20.iloc[-1]) if pd.notna(ma20.iloc[-1]) else 0.0
+        if last_ma20 <= 0:
+            continue
+        deviation_pct = (last_close - last_ma20) / last_ma20 * 100.0
 
-        combined = (s_rsi * w_rsi + s_bb * w_bb) / wsum
+        try:
+            rsi_series = ind.rsi(close)
+            rsi_now = float(rsi_series.iloc[-1]) if pd.notna(rsi_series.iloc[-1]) else float("nan")
+        except Exception:
+            rsi_now = float("nan")
 
         rows.append({
             "ticker": ticker,
             "rsi": rsi_now,
-            "mean_reversion_score": combined,
+            "deviation_pct": deviation_pct,
+            "mean_reversion_score": _ma_deviation_tier_score(deviation_pct),
         })
 
     return pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame()

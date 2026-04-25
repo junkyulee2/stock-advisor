@@ -171,6 +171,12 @@ def act_refresh(request: Request):
     return _toast_response(ok, msg)
 
 
+@app.get("/healthz")
+def healthz():
+    """Lightweight liveness ping (no GitHub/FDR calls). For UptimeRobot keepalive."""
+    return JSONResponse({"ok": True, "service": "chungyu-stock", "version": "2.0"})
+
+
 @app.get("/api/workflow-status")
 def api_workflow_status():
     info = services.workflow_status()

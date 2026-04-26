@@ -102,9 +102,9 @@ def build_dashboard_context() -> dict:
     # Top score regardless of holdings (for empty-state hint)
     top_score = float(scores[0]["total_score"]) if scores else 0.0
 
-    # Current prices for held + top picks
-    prices_needed = tuple(set(list(held_tickers) + [s["ticker"] for s in scores[:10]]))
-    current_prices = fetch_current_prices(prices_needed)
+    # Current prices: ONLY held tickers (recommendations use scores file's close).
+    # Korean market is closed outside hours anyway -> close from scores ≈ live price.
+    current_prices = fetch_current_prices(tuple(held_tickers)) if held_tickers else {}
 
     # Holdings list with P/L
     holdings = _build_holdings(positions, current_prices)

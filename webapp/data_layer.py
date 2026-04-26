@@ -23,7 +23,10 @@ HISTORY_PATH = CONFIG["paths"]["history"]          # "data/history.json"
 SCORES_DIR = CONFIG["paths"]["scores_dir"]         # "data/scores"
 
 _READ_TTL_SECONDS = 20
+_SCORES_TTL_SECONDS = 300        # scores files only update once daily; cache 5min
+_SCORES_INDEX_TTL_SECONDS = 300  # cache the "which file is latest" probe result
 _read_cache: dict[str, tuple[float, Any, str | None]] = {}
+_scores_index_cache: dict[str, tuple[float, list[dict]]] = {}
 
 
 def _now() -> float:
@@ -31,9 +34,13 @@ def _now() -> float:
 
 
 def cloud_read(path: str, *, force: bool = False) -> tuple[Any, str | None]:
-    """Returns (data, sha). sha is None for local mode. Cached 20s by path."""
+    """Returns (data, sha). sha is None for local mode. TTL-cached by path.
+
+    scores files cached longer (5 min) since they only update once daily.
+    """
+    ttl = _SCORES_TTL_SECONDS if path.startswith(SCORES_DIR) else _READ_TTL_SECONDS
     cached = _read_cache.get(path)
-    if not force and cached and (_now() - cached[0]) < _READ_TTL_SECONDS:
+    if not force and cached and (_now() - cached[0]) < ttl:
         return cached[1], cached[2]
 
     if CLOUD_MODE:
@@ -72,8 +79,11 @@ def cloud_write(path: str, data: dict, sha: str | None, message: str) -> bool:
 def invalidate_cache(path: str | None = None) -> None:
     if path is None:
         _read_cache.clear()
+        _scores_index_cache.clear()
     else:
         _read_cache.pop(path, None)
+        if path.startswith(SCORES_DIR):
+            _scores_index_cache.clear()
 
 
 def load_portfolio() -> tuple[dict, str | None]:
@@ -110,25 +120,38 @@ def _list_score_filenames() -> list[str]:
     return [p.name for p in sorted(local_dir.glob("scores_*.json"), reverse=True)]
 
 
-def latest_scores() -> tuple[list[dict], str | None]:
-    """Returns (scores list, source filename) for the most recent scores file.
+def _resolve_score_files(max_to_find: int = 2) -> list[dict]:
+    """Probe candidate filenames once, return the first N existing files (with data).
 
-    Scores are stored as `data/scores/scores_YYYYMMDD.json`.
+    Result cached 5min so subsequent dashboard hits don't re-probe GitHub.
+    Each entry: {"name": "scores_YYYYMMDD.json", "data": [...]}
     """
+    cached = _scores_index_cache.get("idx")
+    if cached and (_now() - cached[0]) < _SCORES_INDEX_TTL_SECONDS:
+        return cached[1]
+
+    found: list[dict] = []
     for name in _list_score_filenames():
         data, _ = cloud_read(f"{SCORES_DIR}/{name}")
         if data:
-            return data, name
-    return [], None
+            found.append({"name": name, "data": data})
+            if len(found) >= max_to_find:
+                break
+    _scores_index_cache["idx"] = (_now(), found)
+    return found
+
+
+def latest_scores() -> tuple[list[dict], str | None]:
+    """Returns (scores list, filename) for the most recent scores file."""
+    files = _resolve_score_files(max_to_find=2)
+    if not files:
+        return [], None
+    return files[0]["data"], files[0]["name"]
 
 
 def previous_scores() -> tuple[list[dict], str | None]:
     """Second-most-recent scores file (for day-over-day rank delta)."""
-    found = 0
-    for name in _list_score_filenames():
-        data, _ = cloud_read(f"{SCORES_DIR}/{name}")
-        if data:
-            found += 1
-            if found == 2:
-                return data, name
-    return [], None
+    files = _resolve_score_files(max_to_find=2)
+    if len(files) < 2:
+        return [], None
+    return files[1]["data"], files[1]["name"]

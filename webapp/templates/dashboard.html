@@ -72,48 +72,81 @@
   <div class="panel">
     <div class="panel-head">
       <div>
-        <h3>포트폴리오 추이</h3>
-        <div class="sub">최근 30거래일 평가금액 변동</div>
+        <h3>📊 시장 5팩터 프로파일</h3>
+        <div class="sub">{{ radar.n }}종목 평균 · {{ scores_date }}</div>
       </div>
-      {% if chart.points %}
-      <div class="dim" style="font-size:12px;">
-        ₩{{ chart.min|num }} ~ ₩{{ chart.max|num }}
-      </div>
-      {% endif %}
+      <div class="dim mono" style="font-size:12px;font-weight:700;">평균 총점 <b style="color:var(--primary);font-size:15px;">{{ radar.total_avg }}</b></div>
     </div>
-    <div class="chart-body">
-      {% if chart.points %}
-      <div class="legend">
-        <span><span class="legend-dot" style="background:var(--primary);"></span>평가금액 추이</span>
-        <span class="dim">현재 ₩{{ chart.current|num }}</span>
+    <div class="radar-body">
+      {% if radar.axes %}
+      <div class="radar-row">
+        <svg class="radar-svg" viewBox="-100 -100 200 200" preserveAspectRatio="xMidYMid meet">
+          {# 5색 프리즘 그라디언트 정의 (이웃 정점 간 색상 블렌딩) #}
+          <defs>
+            {% for i in range(5) %}
+            {% set v1 = radar.vertices[i] %}
+            {% set v2 = radar.vertices[(i + 1) % 5] %}
+            <linearGradient id="rg{{ i }}" x1="{{ v1.x }}" y1="{{ v1.y }}"
+                                            x2="{{ v2.x }}" y2="{{ v2.y }}"
+                                            gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="{{ v1.color }}" stop-opacity="0.55"/>
+              <stop offset="100%" stop-color="{{ v2.color }}" stop-opacity="0.55"/>
+            </linearGradient>
+            {% endfor %}
+          </defs>
+
+          {# concentric guide rings #}
+          <g fill="none" stroke="#e2e8f0" stroke-width="1">
+            {% for r in radar.rings %}
+            <circle cx="0" cy="0" r="{{ r }}"/>
+            {% endfor %}
+          </g>
+          {# axes lines #}
+          <g stroke="#cbd5e1" stroke-width="1">
+            {% for ax in radar.axes %}
+            <line x1="0" y1="0" x2="{{ ax.axis_x }}" y2="{{ ax.axis_y }}"/>
+            {% endfor %}
+          </g>
+
+          {# 프리즘 fill: 5 triangle slices with neighbor-color gradients #}
+          {% for i in range(5) %}
+          {% set v1 = radar.vertices[i] %}
+          {% set v2 = radar.vertices[(i + 1) % 5] %}
+          <polygon points="0,0 {{ v1.x }},{{ v1.y }} {{ v2.x }},{{ v2.y }}"
+                   fill="url(#rg{{ i }})"/>
+          {% endfor %}
+
+          {# data polygon outline (no fill) #}
+          <polygon points="{{ radar.polygon_pts }}"
+                   fill="none" stroke="#475569" stroke-width="1.5" stroke-opacity=".4"/>
+
+          {# vertices (colored dots) #}
+          {% for v in radar.vertices %}
+          <circle cx="{{ v.x }}" cy="{{ v.y }}" r="4.5" fill="{{ v.color }}" stroke="#fff" stroke-width="2"/>
+          {% endfor %}
+          {# axis labels #}
+          <g fill="#475569" font-size="10" font-weight="700" text-anchor="middle">
+            {% for ax in radar.axes %}
+            <text x="{{ ax.label_x }}" y="{{ ax.label_y + 3 }}">{{ ax.label }}</text>
+            {% endfor %}
+          </g>
+          {# center total avg #}
+          <circle cx="0" cy="0" r="22" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+          <text x="0" y="-1" text-anchor="middle" font-size="9" font-weight="700" fill="#94a3b8">평균</text>
+          <text x="0" y="11" text-anchor="middle" font-size="14" font-weight="900" fill="#1e293b" class="mono">{{ radar.total_avg }}</text>
+        </svg>
+        <div class="radar-list">
+          {% for ax in radar.axes %}
+          <div class="radar-item">
+            <span class="radar-dot" style="background:{{ ax.color }};"></span>
+            <span class="radar-name">{{ ax.label }}</span>
+            <span class="radar-val mono">{{ ax.value }}</span>
+          </div>
+          {% endfor %}
+        </div>
       </div>
-      <svg class="chart-svg" viewBox="0 0 700 260" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="chart-grad" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stop-color="#5750f1" stop-opacity=".25"/>
-            <stop offset="100%" stop-color="#5750f1" stop-opacity="0"/>
-          </linearGradient>
-        </defs>
-        <g stroke="#e2e8f0" stroke-width="1">
-          <line x1="0" x2="700" y1="10" y2="10" stroke-dasharray="3 3"/>
-          <line x1="0" x2="700" y1="130" y2="130" stroke-dasharray="3 3"/>
-          <line x1="0" x2="700" y1="250" y2="250" stroke-dasharray="3 3"/>
-        </g>
-        {% set pts = chart.points %}
-        <path d="M {{ pts[0][0] }} 250
-                 {% for p in pts %}L {{ p[0] }} {{ p[1] }} {% endfor %}
-                 L {{ pts[-1][0] }} 250 Z"
-              fill="url(#chart-grad)"/>
-        <path d="M {{ pts[0][0] }} {{ pts[0][1] }}
-                 {% for p in pts[1:] %}L {{ p[0] }} {{ p[1] }} {% endfor %}"
-              fill="none" stroke="#5750f1" stroke-width="2.5"/>
-        <circle cx="{{ pts[-1][0] }}" cy="{{ pts[-1][1] }}" r="5" fill="#5750f1" stroke="#fff" stroke-width="2"/>
-        <circle cx="{{ pts[-1][0] }}" cy="{{ pts[-1][1] }}" r="10" fill="#5750f1" opacity=".15"/>
-      </svg>
       {% else %}
-      <div class="chart-empty">
-        💡 보유 종목이 없거나 가격 데이터를 가져올 수 없습니다
-      </div>
+      <div class="chart-empty">💡 점수 데이터가 없습니다</div>
       {% endif %}
     </div>
   </div>

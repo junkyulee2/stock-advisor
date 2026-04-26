@@ -112,8 +112,8 @@ def build_dashboard_context() -> dict:
     # KPIs
     kpis = _compute_kpis(portfolio, history, holdings)
 
-    # Portfolio value series (last 30 days, for chart)
-    chart = _build_chart_data(positions)
+    # 5-factor radar (instant — uses already-loaded scores, no FDR/GitHub)
+    radar = _build_factor_radar(scores)
 
     return {
         "scores_date": _filename_to_date(scores_file),
@@ -127,7 +127,7 @@ def build_dashboard_context() -> dict:
         "references": references,
         "holdings": holdings,
         "kpis": kpis,
-        "chart": chart,
+        "radar": radar,
 
         "cloud_mode": CLOUD_MODE,
     }
@@ -275,8 +275,71 @@ def _compute_kpis(portfolio: dict, history: dict, holdings: list[dict]) -> dict:
     }
 
 
-def _build_chart_data(positions: dict) -> dict:
-    """Build SVG-friendly point list for portfolio value over last ~30 trading days."""
+_RADAR_AXES = [
+    # (label, key, color, axis-degree-from-top)
+    ("모멘텀",   "momentum_score",       "#22c55e",   0),
+    ("수급",     "supply_demand_score",  "#3b82f6",  72),
+    ("퀄리티",   "quality_score",        "#a855f7", 144),
+    ("변동성",   "volatility_score",     "#ec4899", 216),
+    ("역추세",   "mean_reversion_score", "#fbbf24", 288),
+]
+
+
+def _build_factor_radar(scores: list[dict]) -> dict:
+    """5-factor market average radar. Pure compute on already-loaded scores."""
+    import math
+    if not scores:
+        return {"axes": [], "polygon_pts": "", "vertices": [], "total_avg": 0.0, "n": 0}
+
+    factor_avgs: dict[str, float] = {}
+    for _label, key, _color, _deg in _RADAR_AXES:
+        vals = [float(s.get(key, 0) or 0) for s in scores]
+        factor_avgs[key] = sum(vals) / len(vals) if vals else 0.0
+
+    total_avg = sum(float(s.get("total_score", 0) or 0) for s in scores) / len(scores)
+
+    # SVG geometry: viewBox -100 -100 200 200, radius 80 = full 100 score
+    radius = 80
+    axes_out = []
+    polygon_pts = []
+    vertices = []
+    for label, key, color, deg in _RADAR_AXES:
+        rad = math.radians(deg - 90)  # -90 so 0deg axis points up
+        # Score-position vertex
+        v = factor_avgs[key]
+        r = (v / 100.0) * radius
+        x = round(r * math.cos(rad), 2)
+        y = round(r * math.sin(rad), 2)
+        # Axis end (max)
+        ax_x = round(radius * math.cos(rad), 2)
+        ax_y = round(radius * math.sin(rad), 2)
+        # Label position (slightly outside max)
+        lab_x = round((radius + 14) * math.cos(rad), 2)
+        lab_y = round((radius + 14) * math.sin(rad), 2)
+        axes_out.append({
+            "label": label, "color": color,
+            "value": round(v, 1),
+            "axis_x": ax_x, "axis_y": ax_y,
+            "label_x": lab_x, "label_y": lab_y,
+        })
+        polygon_pts.append(f"{x},{y}")
+        vertices.append({"x": x, "y": y, "color": color, "value": round(v, 1)})
+
+    # Concentric ring positions for grid (20/40/60/80/100 score)
+    rings = [round(radius * frac, 2) for frac in (0.2, 0.4, 0.6, 0.8, 1.0)]
+
+    return {
+        "axes": axes_out,
+        "polygon_pts": " ".join(polygon_pts),
+        "vertices": vertices,
+        "rings": rings,
+        "total_avg": round(total_avg, 1),
+        "n": len(scores),
+    }
+
+
+def _build_chart_data_DEPRECATED(positions: dict) -> dict:
+    """OBSOLETE — replaced by _build_factor_radar (no FDR calls). Kept for reference."""
     if not positions:
         return {"points": [], "labels": [], "min": 0, "max": 0, "current": 0}
 
@@ -285,7 +348,6 @@ def _build_chart_data(positions: dict) -> dict:
     if df.empty:
         return {"points": [], "labels": [], "min": 0, "max": 0, "current": 0}
 
-    # Per-day total cost-basis P/L
     series_vals: list[float] = []
     labels: list[str] = []
     base_cost = sum(float(p.get("cost_krw", 0) or 0) for p in positions.values())
@@ -303,9 +365,8 @@ def _build_chart_data(positions: dict) -> dict:
 
     lo, hi = min(series_vals), max(series_vals)
     if hi == lo:
-        hi = lo + 1  # avoid div-by-zero
+        hi = lo + 1
 
-    # Normalize to SVG coords: x ∈ [0,700], y ∈ [10,250] (inverted)
     n = len(series_vals)
     points = []
     for i, v in enumerate(series_vals):

@@ -134,9 +134,47 @@ def build_dashboard_context() -> dict:
 
 
 def build_recommendations_context() -> dict:
-    """All buyable picks (80+) and reference picks."""
-    ctx = build_dashboard_context()
-    return ctx
+    """Slim builder for /recommendations: only what the page actually displays.
+    Skips holdings prices (FDR), KPI, radar, chart — saves ~1.5s vs dashboard.
+    """
+    scores, scores_file = latest_scores()
+    prev_scores_data, _ = previous_scores()
+    portfolio, _ = load_portfolio()
+
+    scores = sorted(scores, key=lambda x: -float(x.get("total_score", 0)))
+    prev_map = _rank_map(prev_scores_data)
+    held_tickers = set(portfolio.get("positions", {}).keys())
+
+    recs_raw = [s for s in scores
+                if float(s.get("total_score", 0)) >= MIN_SCORE_TO_BUY
+                and s["ticker"] not in held_tickers]
+    recommendations = [
+        _enrich_score_row(s, prev_map, today_rank=i + 1)
+        for i, s in enumerate(recs_raw[:20])
+    ]
+
+    references: list[dict] = []
+    if not recommendations:
+        ref_raw = [s for s in scores if s["ticker"] not in held_tickers][:2]
+        references = [
+            _enrich_score_row(s, prev_map, today_rank=i + 1)
+            for i, s in enumerate(ref_raw)
+        ]
+
+    top_score = float(scores[0]["total_score"]) if scores else 0.0
+
+    return {
+        "scores_date": _filename_to_date(scores_file),
+        "today_str": datetime.now().strftime("%Y-%m-%d (%a)"),
+        "min_score": MIN_SCORE_TO_BUY,
+        "max_positions": MAX_POSITIONS,
+        "top_score": top_score,
+        "scores_count": len(scores),
+
+        "recommendations": recommendations,
+        "references": references,
+        "cloud_mode": CLOUD_MODE,
+    }
 
 
 def build_holdings_context() -> dict:

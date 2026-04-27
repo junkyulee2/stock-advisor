@@ -82,6 +82,17 @@
       "cost_krw": 96400.0,
       "entry_score": 80.7267089264,
       "entry_date": "2026-04-25"
+    },
+    {
+      "ticker": "456040",
+      "name": "OCI",
+      "action": "buy",
+      "type": "add",
+      "qty": 1,
+      "price": 145500.0,
+      "cost_krw": 145500.0,
+      "entry_score": 69.0241554714,
+      "entry_date": "2026-04-27"
     }
   ]
 }

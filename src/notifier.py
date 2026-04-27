@@ -73,3 +73,26 @@ def format_sell_alert(exit_order: dict, position: dict, current_price: float) ->
         f"- action: sell {ratio_pct}%\n"
         f"- reason: {exit_order['reason']}"
     )
+
+
+def format_degradation_alert(position: dict, current_score_row: dict,
+                             signs: list[dict], level: str) -> str:
+    """Alert when factor breakdown shows the buy thesis is breaking down.
+
+    `signs`: list of {key, label, entry, current, delta} from
+    sell_signals_view.evaluate_degradation.
+    """
+    icon = "🚨" if level == "sell" else "⚠️"
+    title = "매수 근거 붕괴" if level == "sell" else "매수 근거 약화"
+    cur_total = float(current_score_row.get("total_score", 0) or 0)
+    entry_total = float(position.get("entry_score", 0) or 0)
+
+    lines = [
+        f"{icon} **{title}**: {position['name']} ({position['ticker']})",
+        f"- 종합 점수: {entry_total:.1f} → **{cur_total:.1f}** ({cur_total - entry_total:+.1f})",
+        f"- 약화 신호 {len(signs)}개:",
+    ]
+    for s in signs:
+        lines.append(f"  • {s['label']}: {s['entry']:.0f} → {s['current']:.0f} "
+                     f"({s['delta']:+.0f})")
+    return "\n".join(lines)

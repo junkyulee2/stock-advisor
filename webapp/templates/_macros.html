@@ -108,6 +108,28 @@
 {% endmacro %}
 
 
+{% macro sell_signal(h, compact=False) %}
+{# Sell-signal badge + (optional) degradation detail. compact=True for inline rows. #}
+<div class="ssig ssig-{{ h.signal_level }}">
+  <div class="ssig-badge">{{ h.signal_label }}</div>
+  {% if not compact %}
+  <div class="ssig-reason">{{ h.signal_reason }}</div>
+  {% endif %}
+  {% if not compact and h.degradation and h.degradation.signs %}
+  <div class="ssig-signs">
+    {% for s in h.degradation.signs %}
+    <div class="ssig-sign">
+      <span class="ssig-sign-label">{{ s.label }}</span>
+      <span class="ssig-sign-vals mono">{{ s.entry|round|int }} → {{ s.current|round|int }}</span>
+      <span class="ssig-sign-delta mono">{{ '%+.0f'|format(s.delta) }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+
 {% macro pill_badge(delta) %}
 {% if delta.kind == 'up' %}<span class="badge b-up">{{ delta.label }}</span>
 {% elif delta.kind == 'down' %}<span class="badge b-down">{{ delta.label }}</span>

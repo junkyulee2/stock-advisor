@@ -9,11 +9,18 @@
       "qty": 6,
       "initial_qty": 6,
       "cost_krw": 93000.0,
-      "entry_score": 86.8943623646,
+      "entry_score": 64.3499623407,
       "sector": null,
       "highest_price": 16030.0,
       "partial_taken": false,
-      "realized_pnl_krw": 0
+      "realized_pnl_krw": 0,
+      "entry_factors": {
+        "momentum": 95.0,
+        "supply_demand": 54.538632722,
+        "quality": 48.786407767,
+        "volatility": 86.4734299517,
+        "mean_reversion": 10.0
+      }
     },
     "456040": {
       "ticker": "456040",
@@ -23,13 +30,20 @@
       "qty": 2,
       "initial_qty": 2,
       "cost_krw": 282700.0,
-      "entry_score": 87.8773830143,
+      "entry_score": 68.8549875712,
       "sector": null,
       "highest_price": 145500.0,
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "last_added_date": "2026-04-27",
-      "add_count": 1
+      "add_count": 1,
+      "entry_factors": {
+        "momentum": 95.0,
+        "supply_demand": 58.0311476623,
+        "quality": 73.4821428571,
+        "volatility": 85.7487922705,
+        "mean_reversion": 10.0
+      }
     },
     "483650": {
       "ticker": "483650",
@@ -39,13 +53,20 @@
       "qty": 2,
       "initial_qty": 2,
       "cost_krw": 470000.0,
-      "entry_score": 86.0101066243,
+      "entry_score": 66.0627763762,
       "sector": null,
       "highest_price": 241000.0,
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "last_added_date": "2026-04-25",
-      "add_count": 1
+      "add_count": 1,
+      "entry_factors": {
+        "momentum": 95.0,
+        "supply_demand": 93.983175242,
+        "quality": 24.2549240293,
+        "volatility": 41.7874396135,
+        "mean_reversion": 10.0
+      }
     },
     "375500": {
       "ticker": "375500",
@@ -55,14 +76,21 @@
       "qty": 2,
       "initial_qty": 2,
       "cost_krw": 198000.0,
-      "entry_score": 81.628986192,
+      "entry_score": 81.5462055581,
       "sector": null,
       "highest_price": 99000.0,
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "mode": "simulation",
       "last_added_date": "2026-04-25",
-      "add_count": 1
+      "add_count": 1,
+      "entry_factors": {
+        "momentum": 80.6648864618,
+        "supply_demand": 83.04927153,
+        "quality": 81.7260458839,
+        "volatility": 87.922705314,
+        "mean_reversion": 10.0
+      }
     },
     "036540": {
       "ticker": "036540",
@@ -72,14 +100,21 @@
       "qty": 15,
       "initial_qty": 15,
       "cost_krw": 144600.0,
-      "entry_score": 80.7267089264,
+      "entry_score": 69.6748504807,
       "sector": null,
       "highest_price": 9640.0,
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "mode": "simulation",
       "last_added_date": "2026-04-25",
-      "add_count": 1
+      "add_count": 1,
+      "entry_factors": {
+        "momentum": 95.0,
+        "supply_demand": 89.4820106185,
+        "quality": 32.4879227053,
+        "volatility": 76.8115942029,
+        "mean_reversion": 10.0
+      }
     }
   },
   "updated_at": "2026-04-27"

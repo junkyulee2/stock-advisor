@@ -430,6 +430,49 @@ table.t tr:hover td { background: var(--line-2); }
   .rb-action { padding: 6px 10px; font-size: 12px; }
 }
 
+/* ============ SELL SIGNAL BADGE ============ */
+.ssig {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 10px; border-radius: 8px;
+  background: var(--line-2);
+  border-left: 3px solid var(--ink-3);
+  font-size: 12px;
+}
+.ssig-badge { font-weight: 700; font-size: 12.5px; }
+.ssig-reason { color: var(--ink-2); font-size: 11.5px; line-height: 1.4; }
+
+.ssig-signs { display: flex; flex-direction: column; gap: 2px; margin-top: 4px;
+              padding-top: 4px; border-top: 1px dashed var(--line); }
+.ssig-sign { display: flex; gap: 8px; align-items: center; font-size: 11px; }
+.ssig-sign-label { width: 50px; color: var(--ink-2); }
+.ssig-sign-vals { flex: 1; color: var(--ink); }
+.ssig-sign-delta { color: var(--up); font-weight: 700; }
+
+/* Severity color mapping */
+.ssig-safe    { background: var(--green-soft);  border-left-color: var(--green); }
+.ssig-safe    .ssig-badge { color: var(--green); }
+.ssig-caution { background: var(--yellow-soft); border-left-color: var(--yellow); }
+.ssig-caution .ssig-badge { color: #a16207; }
+.ssig-warn    { background: var(--orange-soft); border-left-color: var(--orange); }
+.ssig-warn    .ssig-badge { color: var(--orange); }
+.ssig-sell    { background: #fee2e2;            border-left-color: var(--up); }
+.ssig-sell    .ssig-badge { color: var(--up); font-size: 13px; }
+.ssig-forced  { background: #fee2e2;            border-left-color: var(--up);
+                box-shadow: 0 0 0 1px var(--up) inset; }
+.ssig-forced  .ssig-badge { color: var(--up); font-size: 13px; }
+
+/* Row tinting on holdings table */
+.srow td { transition: background .15s; }
+.srow-sell    td,
+.srow-forced  td { background: #fef2f2; }
+.srow-warn    td { background: #fff7ed; }
+.srow-caution td { background: #fefce8; }
+
+/* Mobile holdings card subtle border tint */
+.hcard-sell, .hcard-forced { border-left: 4px solid var(--up); }
+.hcard-warn   { border-left: 4px solid var(--orange); }
+.hcard-caution { border-left: 4px solid var(--yellow); }
+
 /* ============ MOBILE BOTTOM TAB ============ */
 .tabbar { display: none; }
 

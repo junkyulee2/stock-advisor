@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import stock_card, stat_card, pill_badge with context %}
+{% from "_macros.html" import stock_card, stat_card, pill_badge, sell_signal with context %}
 
 {% block title %}대시보드 · 춘규주식{% endblock %}
 
@@ -200,6 +200,7 @@
     <table class="t">
       <thead>
         <tr>
+          <th>신호</th>
           <th>종목</th>
           <th>매수 / 현재가</th>
           <th>수량</th>
@@ -210,7 +211,8 @@
       </thead>
       <tbody>
         {% for h in holdings[:5] %}
-        <tr>
+        <tr class="srow srow-{{ h.signal_level }}">
+          <td>{{ sell_signal(h, compact=True) }}</td>
           <td>
             <div class="t-name">{{ h.name }}</div>
             <div class="t-sub">{{ h.ticker }} · {{ h.entry_date }}</div>
@@ -251,7 +253,7 @@
   <div style="display:flex;flex-direction:column;gap:8px;">
     {% for h in holdings[:5] %}
     <a href="/holdings" style="text-decoration:none;color:inherit;">
-      <div class="hcard" style="padding:12px 14px;">
+      <div class="hcard hcard-{{ h.signal_level }}" style="padding:12px 14px;">
         <div class="hcard-top" style="margin-bottom:8px;">
           <div class="hcard-info">
             <div class="hcard-name">{{ h.name }}</div>
@@ -262,6 +264,7 @@
             <div class="hcard-pl-pct {% if h.pnl_pct >= 0 %}up{% else %}down{% endif %}">{{ h.pnl_pct|pct }}</div>
           </div>
         </div>
+        {{ sell_signal(h, compact=True) }}
       </div>
     </a>
     {% endfor %}

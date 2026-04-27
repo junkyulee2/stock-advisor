@@ -29,6 +29,18 @@ def _commit_pair(portfolio, p_sha, history, h_sha, msg_prefix: str):
 
 # ---------- operations ----------
 
+def _extract_factors(rec: dict) -> dict:
+    """Pull 5-factor breakdown out of a scores record. Used to snapshot
+    factor strength at entry for later 'factor degradation' sell signals."""
+    return {
+        "momentum":       float(rec.get("momentum_score", 0) or 0),
+        "supply_demand":  float(rec.get("supply_demand_score", 0) or 0),
+        "quality":        float(rec.get("quality_score", 0) or 0),
+        "volatility":     float(rec.get("volatility_score", 0) or 0),
+        "mean_reversion": float(rec.get("mean_reversion_score", 0) or 0),
+    }
+
+
 def buy(rec: dict, amount_krw: int) -> tuple[bool, str]:
     price = float(rec.get("close", 0) or 0)
     if price <= 0:
@@ -44,6 +56,7 @@ def buy(rec: dict, amount_krw: int) -> tuple[bool, str]:
             portfolio, ticker=ticker, name=rec["name"],
             price=price, amount_krw=amount_krw,
             score=float(rec["total_score"]),
+            factors=_extract_factors(rec),
         )
         pos["mode"] = "simulation"
         pf.record_buy_history(history, pos)

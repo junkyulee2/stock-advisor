@@ -38,12 +38,16 @@ def buy(
     date: Optional[str] = None,
     sector: Optional[str] = None,
     min_qty: int = 1,
+    factors: Optional[dict] = None,
 ) -> dict:
     """Execute a paper buy. Returns the new position.
 
     Minimum 1 share is always purchased — Korean market has no fractional
     shares, and skipping expensive picks from Top 3 would distort results.
     `actual_cost` may exceed `amount_krw` if 1 share > budget (e.g., 황제주).
+
+    `factors`: 5-factor breakdown at entry, used later for "factor degradation"
+    sell signals. Keys: momentum, supply_demand, quality, volatility, mean_reversion.
     """
     if price <= 0:
         raise ValueError(f"invalid price: {price}")
@@ -61,6 +65,7 @@ def buy(
         "initial_qty": qty,
         "cost_krw": actual_cost,
         "entry_score": float(score),
+        "entry_factors": factors or {},
         "sector": sector,
         "highest_price": float(price),
         "partial_taken": False,

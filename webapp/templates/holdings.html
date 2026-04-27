@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import sell_signal with context %}
 
 {% block title %}보유 종목 · 춘규주식{% endblock %}
 
@@ -51,12 +52,13 @@
 <div class="panel desktop-only">
   <div class="panel-head">
     <h3>전체 보유</h3>
-    <div class="sub">{{ kpis.open_positions }}종목 · 수익률 내림차순</div>
+    <div class="sub">{{ kpis.open_positions }}종목 · 매도 신호 우선 정렬</div>
   </div>
   <div class="t-wrap">
     <table class="t">
       <thead>
         <tr>
+          <th>매도 신호</th>
           <th>종목</th>
           <th>매수 / 현재가</th>
           <th>수량</th>
@@ -68,10 +70,13 @@
       </thead>
       <tbody>
         {% for h in holdings %}
-        <tr>
+        <tr class="srow srow-{{ h.signal_level }}">
+          <td style="max-width:280px;">
+            {{ sell_signal(h) }}
+          </td>
           <td>
             <div class="t-name">{{ h.name }}</div>
-            <div class="t-sub">{{ h.ticker }} · {{ h.entry_date }}</div>
+            <div class="t-sub">{{ h.ticker }} · {{ h.entry_date }} · {{ h.days_held }}일</div>
           </td>
           <td>
             <div class="mono">₩{{ h.entry_price|int|num }}</div>
@@ -87,7 +92,12 @@
               {{ h.pnl_pct|pct }}
             </div>
           </td>
-          <td><span class="badge b-hold">{{ h.entry_score|score }}점</span></td>
+          <td>
+            <span class="badge b-hold">{{ h.entry_score|score }}점</span>
+            {% if h.current_score is not none %}
+            <div class="t-sub mono">→ {{ h.current_score|score }}</div>
+            {% endif %}
+          </td>
           <td>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               {% if cloud_mode %}
@@ -125,17 +135,20 @@
 {# ====== MOBILE CARD STACK ====== #}
 <div class="mobile-only" style="display:flex;flex-direction:column;gap:10px;">
   {% for h in holdings %}
-  <div class="hcard">
+  <div class="hcard hcard-{{ h.signal_level }}">
     <div class="hcard-top">
       <div class="hcard-info">
         <div class="hcard-name">{{ h.name }}</div>
-        <div class="hcard-tk">{{ h.ticker }} · 매수 {{ h.entry_date }} · <span class="badge b-hold">{{ h.entry_score|score }}점</span></div>
+        <div class="hcard-tk">{{ h.ticker }} · {{ h.days_held }}일 · <span class="badge b-hold">{{ h.entry_score|score }}점</span>{% if h.current_score is not none %} → {{ h.current_score|score }}{% endif %}</div>
       </div>
       <div class="hcard-pl">
         <div class="hcard-pl-num mono {% if h.pnl_krw >= 0 %}up{% else %}down{% endif %}">{{ h.pnl_krw|krw_signed }}</div>
         <div class="hcard-pl-pct {% if h.pnl_pct >= 0 %}up{% else %}down{% endif %}">{{ h.pnl_pct|pct }}</div>
       </div>
     </div>
+
+    {{ sell_signal(h) }}
+
     <div class="hcard-grid">
       <div><span class="dim">매수가</span><b class="mono">₩{{ h.entry_price|int|num }}</b></div>
       <div><span class="dim">현재가</span><b class="mono">₩{{ h.current_price|int|num }}</b></div>

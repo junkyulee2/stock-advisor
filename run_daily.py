@@ -32,6 +32,7 @@ from src.utils import (
     save_json,
     setup_logger,
 )
+from webapp import sell_signals_view as ssv  # degradation evaluator
 
 logger = setup_logger("run_daily")
 
@@ -246,6 +247,35 @@ def recommend_top3(df: pd.DataFrame, config: dict) -> list[dict]:
     return picks
 
 
+def check_degradation_alerts(df: pd.DataFrame, config: dict) -> None:
+    """For each held position with entry_factors, compare against today's
+    score row. Emit a Discord alert if level reaches warn/sell.
+
+    Pure side-effect (Discord). No file changes, no return value used."""
+    portfolio = pf.load_portfolio(PROJECT_ROOT / config["paths"]["portfolio"])
+    positions = portfolio.get("positions", {})
+    if not positions:
+        return
+    floor = int(config["portfolio_limits"]["min_score_to_buy"])
+
+    for ticker, pos in positions.items():
+        if not pos.get("entry_factors"):
+            continue  # legacy positions without snapshot — skip
+        if ticker not in df.index:
+            continue
+        cur_row = df.loc[ticker].to_dict()
+        cur_row["ticker"] = ticker
+        result = ssv.evaluate_degradation(pos, cur_row, floor_score=floor)
+        if result["level"] not in ("warn", "sell"):
+            continue
+        msg = notifier.format_degradation_alert(
+            pos, cur_row, result["signs"], result["level"]
+        )
+        notifier.send_message(msg)
+        logger.info(f"degradation alert: {ticker} level={result['level']} "
+                    f"signs={len(result['signs'])}")
+
+
 def check_sell_signals(config: dict, as_of: str) -> list[dict]:
     """Scan held positions for sell signals."""
     portfolio = pf.load_portfolio(PROJECT_ROOT / config["paths"]["portfolio"])
@@ -304,6 +334,14 @@ def main():
                 logger.info(f"top3: {[(p['ticker'], p['total_score']) for p in picks]}")
             else:
                 logger.info("no picks passed minimum score threshold")
+
+            # Factor-degradation alerts for held positions (warn/sell only).
+            # Walks today's score rows and compares against each position's
+            # snapshot entry_factors. Notifies via Discord on level=warn or sell.
+            try:
+                check_degradation_alerts(df, config)
+            except Exception as e:
+                logger.warning(f"degradation check failed: {e}")
 
     if args.mode in ("signals", "both"):
         alerts = check_sell_signals(config, as_of)

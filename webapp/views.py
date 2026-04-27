@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from . import sell_signals_view as ssv
 from .data_layer import (
     CONFIG, CLOUD_MODE,
     load_portfolio, load_history, latest_scores, previous_scores,
@@ -106,8 +107,8 @@ def build_dashboard_context() -> dict:
     # Korean market is closed outside hours anyway -> close from scores ≈ live price.
     current_prices = fetch_current_prices(tuple(held_tickers)) if held_tickers else {}
 
-    # Holdings list with P/L
-    holdings = _build_holdings(positions, current_prices)
+    # Holdings list with P/L + sell signals (uses already-loaded scores)
+    holdings = _build_holdings(positions, current_prices, scores_list=scores)
 
     # KPIs
     kpis = _compute_kpis(portfolio, history, holdings)
@@ -182,7 +183,8 @@ def build_holdings_context() -> dict:
     positions = portfolio.get("positions", {})
     held_tickers = tuple(positions.keys())
     current_prices = fetch_current_prices(held_tickers)
-    holdings = _build_holdings(positions, current_prices)
+    scores, _ = latest_scores()
+    holdings = _build_holdings(positions, current_prices, scores_list=scores)
     history, _ = load_history()
     kpis = _compute_kpis(portfolio, history, holdings)
     return {
@@ -205,7 +207,9 @@ def build_history_context(limit: int = 200) -> dict:
     portfolio, _ = load_portfolio()
     held_tickers = tuple(portfolio.get("positions", {}).keys())
     prices = fetch_current_prices(held_tickers) if held_tickers else {}
-    holdings = _build_holdings(portfolio.get("positions", {}), prices)
+    scores, _ = latest_scores()
+    holdings = _build_holdings(portfolio.get("positions", {}), prices,
+                               scores_list=scores)
     kpis = _compute_kpis(portfolio, history, holdings)
     return {
         "trades": trades_sorted,
@@ -223,11 +227,10 @@ def build_analytics_context() -> dict:
     history, _ = load_history()
     held_tickers = tuple(portfolio.get("positions", {}).keys())
     prices = fetch_current_prices(held_tickers) if held_tickers else {}
-    holdings = _build_holdings(portfolio.get("positions", {}), prices)
-    kpis = _compute_kpis(portfolio, history, holdings)
-
-    # Score distribution from latest
     scores, _ = latest_scores()
+    holdings = _build_holdings(portfolio.get("positions", {}), prices,
+                               scores_list=scores)
+    kpis = _compute_kpis(portfolio, history, holdings)
     bins = {"95+": 0, "90-94": 0, "85-89": 0, "80-84": 0, "70-79": 0, "<70": 0}
     for s in scores:
         v = float(s.get("total_score", 0))
@@ -250,7 +253,15 @@ def build_analytics_context() -> dict:
 
 # ---------- shared computations ----------
 
-def _build_holdings(positions: dict, current_prices: dict) -> list[dict]:
+def _build_holdings(positions: dict, current_prices: dict,
+                    scores_list: list[dict] | None = None) -> list[dict]:
+    """Build holdings rows. If `scores_list` provided, attach sell signals
+    (HARD rules + factor degradation). Sorted: most-urgent → most-safe."""
+    score_by_ticker: dict[str, dict] = {}
+    if scores_list:
+        score_by_ticker = {s["ticker"]: s for s in scores_list}
+    today = datetime.now()
+
     out: list[dict] = []
     for ticker, p in positions.items():
         entry = float(p.get("entry_price", 0) or 0)
@@ -259,6 +270,20 @@ def _build_holdings(positions: dict, current_prices: dict) -> list[dict]:
         market_value = cur * qty
         pnl = (cur - entry) * qty
         pnl_pct = ((cur - entry) / entry * 100) if entry > 0 else 0
+        highest = float(p.get("highest_price", entry) or entry)
+        # Drawdown from peak (negative when below peak)
+        dd_from_peak = ((cur / highest - 1) * 100) if highest > 0 else 0
+
+        # Sell-signal evaluation (HARD rules + factor degradation)
+        hard = ssv.evaluate_hard_rules(p, cur, CONFIG, today=today)
+        degradation = ssv.evaluate_degradation(
+            p, score_by_ticker.get(ticker), MIN_SCORE_TO_BUY,
+        )
+        signal = ssv.combine_signals(hard, degradation)
+
+        # Current factor row (for UI delta display)
+        cur_factors = score_by_ticker.get(ticker) or {}
+
         out.append({
             "ticker": ticker,
             "name": p.get("name", ticker),
@@ -271,11 +296,24 @@ def _build_holdings(positions: dict, current_prices: dict) -> list[dict]:
             "pnl_krw": int(pnl),
             "pnl_pct": pnl_pct,
             "entry_score": float(p.get("entry_score", 0) or 0),
+            "current_score": float(cur_factors.get("total_score", 0) or 0)
+                             if cur_factors else None,
             "sector": p.get("sector", "-"),
-            "highest_price": float(p.get("highest_price", 0) or 0),
+            "highest_price": highest,
+            "drawdown_from_peak_pct": dd_from_peak,
             "partial_taken": bool(p.get("partial_taken", False)),
+            "days_held": ssv._days_held(p.get("entry_date", ""), today),
+
+            # Sell signal
+            "signal_level": signal["level"],
+            "signal_label": signal["label"],
+            "signal_reason": signal["reason"],
+            "signal_ratio": signal["ratio"],
+            "signal_source": signal["source"],
+            "degradation": signal["degradation"],
         })
-    out.sort(key=lambda x: -x["pnl_pct"])
+    # Sort: most-urgent signal first, then biggest loss first
+    out.sort(key=lambda x: (-ssv.signal_severity(x["signal_level"]), x["pnl_pct"]))
     return out
 
 

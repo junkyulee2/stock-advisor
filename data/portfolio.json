@@ -18,16 +18,18 @@
     "456040": {
       "ticker": "456040",
       "name": "OCI",
-      "entry_price": 137200.0,
+      "entry_price": 141350.0,
       "entry_date": "2026-04-24",
-      "qty": 1,
-      "initial_qty": 1,
-      "cost_krw": 137200.0,
+      "qty": 2,
+      "initial_qty": 2,
+      "cost_krw": 282700.0,
       "entry_score": 87.8773830143,
       "sector": null,
       "highest_price": 145500.0,
       "partial_taken": false,
-      "realized_pnl_krw": 0
+      "realized_pnl_krw": 0,
+      "last_added_date": "2026-04-27",
+      "add_count": 1
     },
     "483650": {
       "ticker": "483650",
@@ -80,5 +82,5 @@
       "add_count": 1
     }
   },
-  "updated_at": "2026-04-25"
+  "updated_at": "2026-04-27"
 }

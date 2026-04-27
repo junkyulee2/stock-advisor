@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, Form, HTTPException, Request
@@ -168,7 +169,51 @@ def act_sell(request: Request,
 @app.post("/actions/refresh", response_class=HTMLResponse)
 def act_refresh(request: Request):
     ok, msg = services.trigger_refresh()
-    return _toast_response(ok, msg)
+    if not ok:
+        # Failure (e.g. local mode, missing token) — show toast in refresh region
+        return HTMLResponse(_refresh_toast(False, msg))
+    since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return HTMLResponse(_refresh_banner_pending(since, status="queued", elapsed=0,
+                                                first=True))
+
+
+@app.get("/api/refresh-status", response_class=HTMLResponse)
+def api_refresh_status(since: str = ""):
+    """Polled by the refresh banner every few seconds. Returns updated banner HTML.
+
+    `since` is the ISO timestamp captured when the user clicked the button.
+    Only workflow runs created at-or-after `since` are considered "ours".
+    """
+    info = services.workflow_status()
+    elapsed = _elapsed_seconds(since)
+
+    if info is None:
+        # Cloud not configured or API hiccup — keep waiting up to ~30s
+        if elapsed < 30:
+            return HTMLResponse(_refresh_banner_pending(since, "queued", elapsed))
+        return HTMLResponse(_refresh_banner_fail(
+            run_url="https://github.com/junkyulee2/stock-advisor/actions",
+            reason="워크플로우 상태 조회 실패",
+        ))
+
+    created = info.get("created_at", "") or ""
+    # Wait up to ~20s for our new dispatch to register in the API
+    if since and created < since:
+        if elapsed < 20:
+            return HTMLResponse(_refresh_banner_pending(since, "queued", elapsed,
+                                                       sub="GitHub에 워크플로우 등록 중..."))
+        # Took too long — still reflect the most recent run (safer than spinning forever)
+
+    status = info.get("status")
+    conclusion = info.get("conclusion")
+    run_url = info.get("html_url", "https://github.com/junkyulee2/stock-advisor/actions")
+
+    if status == "completed":
+        if conclusion == "success":
+            return HTMLResponse(_refresh_banner_done(elapsed, run_url))
+        return HTMLResponse(_refresh_banner_fail(run_url, reason=f"워크플로우 {conclusion}"))
+
+    return HTMLResponse(_refresh_banner_pending(since, status or "queued", elapsed))
 
 
 @app.api_route("/healthz", methods=["GET", "HEAD"])
@@ -219,8 +264,7 @@ def _toast_response(ok: bool, msg: str, refresh: bool = False) -> HTMLResponse:
     """Returns a small toast banner. HX-Refresh header reloads the full page."""
     color_class = "toast-ok" if ok else "toast-err"
     icon = "✅" if ok else "⚠"
-    html = (f'<div class="toast {color_class}" '
-            f'hx-swap-oob="innerHTML:#toast-region">'
+    html = (f'<div class="toast {color_class}">'
             f'<span class="toast-icon">{icon}</span>'
             f'<span class="toast-msg">{msg}</span>'
             f'</div>')
@@ -228,3 +272,91 @@ def _toast_response(ok: bool, msg: str, refresh: bool = False) -> HTMLResponse:
     if refresh:
         headers["HX-Refresh"] = "true"
     return HTMLResponse(html, headers=headers)
+
+
+# ---------- refresh-banner helpers ----------
+
+_STATUS_LABEL = {
+    "queued": "GitHub Actions 큐 대기 중",
+    "in_progress": "데이터 수집 + 점수 계산 중",
+    "waiting": "워크플로우 대기 중",
+}
+
+
+def _elapsed_seconds(since_iso: str) -> int:
+    if not since_iso:
+        return 0
+    try:
+        s = datetime.fromisoformat(since_iso.replace("Z", "+00:00"))
+        return max(0, int((datetime.now(timezone.utc) - s).total_seconds()))
+    except Exception:
+        return 0
+
+
+def _fmt_mmss(secs: int) -> str:
+    return f"{secs // 60}:{secs % 60:02d}"
+
+
+def _refresh_toast(ok: bool, msg: str) -> str:
+    icon = "✅" if ok else "⚠"
+    cls = "ok" if ok else "fail"
+    return (f'<div id="refresh-banner" class="refresh-banner {cls}">'
+            f'<div class="rb-icon">{icon}</div>'
+            f'<div class="rb-text"><strong>{msg}</strong></div>'
+            f'<button type="button" class="rb-close" '
+            f'onclick="document.getElementById(\'refresh-banner\').remove()">×</button>'
+            f'</div>')
+
+
+def _refresh_banner_pending(since: str, status: str, elapsed: int,
+                            sub: str | None = None, first: bool = False) -> str:
+    label = sub or _STATUS_LABEL.get(status, "처리 중")
+    # Initial swap loads immediately then polls; subsequent swaps just poll.
+    trigger = ('load delay:2s, every 5s' if first else 'every 5s')
+    return (
+        f'<div id="refresh-banner" class="refresh-banner pending"'
+        f' hx-get="/api/refresh-status?since={since}"'
+        f' hx-trigger="{trigger}"'
+        f' hx-swap="outerHTML">'
+        f'  <div class="rb-spinner"></div>'
+        f'  <div class="rb-text">'
+        f'    <strong>점수 재계산 진행 중</strong>'
+        f'    <span>{label}</span>'
+        f'  </div>'
+        f'  <div class="rb-elapsed mono">{_fmt_mmss(elapsed)}</div>'
+        f'</div>'
+    )
+
+
+def _refresh_banner_done(elapsed: int, run_url: str) -> str:
+    mins = elapsed // 60
+    secs = elapsed % 60
+    duration = f"{mins}분 {secs}초" if mins else f"{secs}초"
+    return (
+        f'<div id="refresh-banner" class="refresh-banner done">'
+        f'  <div class="rb-icon">✅</div>'
+        f'  <div class="rb-text">'
+        f'    <strong>점수 재계산 완료</strong>'
+        f'    <span>{duration} 걸렸습니다. 새 점수를 확인하세요.</span>'
+        f'  </div>'
+        f'  <button type="button" class="btn-primary rb-action"'
+        f' onclick="location.reload()">새 점수 보기 →</button>'
+        f'  <a class="rb-log" href="{run_url}" target="_blank" rel="noopener">로그</a>'
+        f'</div>'
+    )
+
+
+def _refresh_banner_fail(run_url: str, reason: str = "오류") -> str:
+    return (
+        f'<div id="refresh-banner" class="refresh-banner fail">'
+        f'  <div class="rb-icon">❌</div>'
+        f'  <div class="rb-text">'
+        f'    <strong>점수 재계산 실패</strong>'
+        f'    <span>{reason}</span>'
+        f'  </div>'
+        f'  <a class="btn-primary rb-action" href="{run_url}" target="_blank"'
+        f' rel="noopener">GitHub 로그 보기</a>'
+        f'  <button type="button" class="rb-close"'
+        f' onclick="document.getElementById(\'refresh-banner\').remove()">×</button>'
+        f'</div>'
+    )

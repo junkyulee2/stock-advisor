@@ -38,14 +38,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Determine mode (time-of-day)
+      - name: Determine mode (time-of-day, or force scores on manual dispatch)
         id: mode
         run: |
-          HOUR_UTC=$(date -u +%H)
-          if [ "$HOUR_UTC" -eq 9 ] || [ "$HOUR_UTC" -eq 6 ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "mode=scores" >> $GITHUB_OUTPUT
           else
-            echo "mode=signals" >> $GITHUB_OUTPUT
+            HOUR_UTC=$(date -u +%H)
+            if [ "$HOUR_UTC" -eq 9 ] || [ "$HOUR_UTC" -eq 6 ]; then
+              echo "mode=scores" >> $GITHUB_OUTPUT
+            else
+              echo "mode=signals" >> $GITHUB_OUTPUT
+            fi
           fi
           echo "Selected mode: $(cat $GITHUB_OUTPUT)"
 

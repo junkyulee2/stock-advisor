@@ -11,7 +11,7 @@
   </div>
   <div class="actions">
     {% if cloud_mode %}
-    <form hx-post="/actions/refresh" hx-target="#toast-region" hx-swap="innerHTML" style="display:inline">
+    <form hx-post="/actions/refresh" hx-target="#refresh-region" hx-swap="innerHTML" style="display:inline">
       <button class="btn-primary" type="submit">🔄 점수 재계산</button>
     </form>
     {% endif %}

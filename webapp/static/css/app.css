@@ -366,6 +366,70 @@ table.t tr:hover td { background: var(--line-2); }
 .toast-icon { font-size: 16px; }
 @keyframes toast-in { from { transform: translateY(20px); opacity: 0; } }
 
+/* ============ REFRESH BANNER (workflow progress) ============ */
+#refresh-region { position: fixed; top: 20px; left: 0; right: 0; z-index: 9999;
+                  display: flex; justify-content: center; pointer-events: none; }
+.refresh-banner {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 14px;
+  min-width: 380px; max-width: min(640px, 92vw);
+  padding: 14px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--primary);
+  border-radius: 14px;
+  box-shadow: 0 14px 38px rgba(15, 23, 42, .12);
+  animation: rb-in .3s ease both;
+}
+.refresh-banner.done { border-left-color: var(--green); }
+.refresh-banner.fail { border-left-color: var(--up); }
+.refresh-banner.ok   { border-left-color: var(--green); }
+
+.rb-spinner {
+  width: 22px; height: 22px; flex-shrink: 0;
+  border: 3px solid var(--line);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: rb-spin .8s linear infinite;
+}
+.rb-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+
+.rb-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.rb-text strong { font-size: 14px; color: var(--ink); font-weight: 700; }
+.rb-text span   { font-size: 12.5px; color: var(--ink-2); }
+
+.rb-elapsed {
+  font-size: 13px; font-weight: 600; color: var(--ink-2);
+  background: var(--line-2); padding: 4px 10px; border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.rb-action { font-size: 13px; padding: 8px 14px; flex-shrink: 0; }
+
+.rb-log {
+  font-size: 12px; color: var(--ink-3);
+  text-decoration: underline; flex-shrink: 0;
+}
+.rb-log:hover { color: var(--primary); }
+
+.rb-close {
+  background: transparent; border: none; cursor: pointer;
+  font-size: 22px; line-height: 1; color: var(--ink-3);
+  padding: 0 4px; flex-shrink: 0;
+}
+.rb-close:hover { color: var(--ink); }
+
+@keyframes rb-spin { to { transform: rotate(360deg); } }
+@keyframes rb-in   { from { transform: translateY(-12px); opacity: 0; } }
+
+@media (max-width: 600px) {
+  .refresh-banner { min-width: 0; width: 92vw; padding: 12px 14px; gap: 10px; }
+  .rb-text strong { font-size: 13px; }
+  .rb-text span { font-size: 11.5px; }
+  .rb-elapsed { padding: 3px 8px; font-size: 12px; }
+  .rb-action { padding: 6px 10px; font-size: 12px; }
+}
+
 /* ============ MOBILE BOTTOM TAB ============ */
 .tabbar { display: none; }
 

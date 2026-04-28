@@ -22,6 +22,7 @@
 {% else %}
 
 {# Stats summary #}
+{% set total_pnl = kpis.realized + kpis.unrealized %}
 <section class="stats" style="grid-template-columns:repeat(3,1fr)">
   <div class="stat">
     <div class="stat-ic ic-primary">💼</div>
@@ -30,13 +31,17 @@
     <div class="stat-sub mono">투자원금 {{ (kpis.market_value - kpis.unrealized)|krw }}</div>
   </div>
   <div class="stat">
-    <div class="stat-ic {% if kpis.unrealized >= 0 %}ic-green{% else %}ic-pink{% endif %}">📊</div>
-    <div class="stat-label">미실현 손익</div>
-    <div class="stat-value mono {% if kpis.unrealized >= 0 %}up{% else %}down{% endif %}">
-      {{ kpis.unrealized|krw_signed }}
+    <div class="stat-ic {% if total_pnl >= 0 %}ic-green{% else %}ic-pink{% endif %}">📈</div>
+    <div class="stat-label">총 손익 (실현 + 미실현)</div>
+    <div class="stat-value mono {% if total_pnl >= 0 %}up{% else %}down{% endif %}">
+      {{ total_pnl|krw_signed }}
     </div>
-    <div class="stat-sub {% if kpis.today_change_pct >= 0 %}up{% else %}down{% endif %}">
-      {{ kpis.today_change_pct|pct }}
+    <div class="stat-sub">
+      <span class="dim">실현</span>
+      <b class="mono {% if kpis.realized >= 0 %}up{% else %}down{% endif %}">{{ kpis.realized|krw_signed }}</b>
+      <span class="dim" style="margin:0 4px;">·</span>
+      <span class="dim">미실현</span>
+      <b class="mono {% if kpis.unrealized >= 0 %}up{% else %}down{% endif %}">{{ kpis.unrealized|krw_signed }}</b>
     </div>
   </div>
   <div class="stat">

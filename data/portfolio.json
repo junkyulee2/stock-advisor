@@ -97,14 +97,14 @@
       "name": "SFA반도체",
       "entry_price": 9640.0,
       "entry_date": "2026-04-25",
-      "qty": 15,
+      "qty": 8,
       "initial_qty": 15,
       "cost_krw": 144600.0,
       "entry_score": 69.6748504807,
       "sector": null,
       "highest_price": 9960.0,
-      "partial_taken": false,
-      "realized_pnl_krw": 0,
+      "partial_taken": true,
+      "realized_pnl_krw": -4550.0,
       "mode": "simulation",
       "last_added_date": "2026-04-25",
       "add_count": 1,
@@ -117,5 +117,5 @@
       }
     }
   },
-  "updated_at": "2026-04-27"
+  "updated_at": "2026-04-28"
 }

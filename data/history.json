@@ -93,6 +93,21 @@
       "cost_krw": 145500.0,
       "entry_score": 69.0241554714,
       "entry_date": "2026-04-27"
+    },
+    {
+      "ticker": "036540",
+      "name": "SFA반도체",
+      "action": "sell",
+      "sell_ratio": 0.5,
+      "qty": 7,
+      "price": 8990.0,
+      "proceeds_krw": 62930.0,
+      "pnl_krw": -4550.0,
+      "pnl_pct": -6.7427385892116165,
+      "reason": "manual_half",
+      "entry_price": 9640.0,
+      "entry_date": "2026-04-25",
+      "exit_date": "2026-04-28"
     }
   ]
 }

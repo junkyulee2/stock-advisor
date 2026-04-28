@@ -184,6 +184,12 @@ def sell(
     history["trades"].append(trade)
 
     pos["qty"] -= sell_qty
+    # Reduce cost basis and initial_qty proportionally so the remaining shares
+    # carry only their share of the cost. Otherwise unrealized P/L (computed
+    # as market_value - cost_krw) double-counts the sold portion's cost.
+    # Average price (cost_krw / initial_qty) stays invariant.
+    pos["initial_qty"] = max(0, int(pos.get("initial_qty", 0)) - sell_qty)
+    pos["cost_krw"] = max(0.0, float(pos.get("cost_krw", 0)) - cost_of_sold)
     pos["realized_pnl_krw"] = pos.get("realized_pnl_krw", 0) + pnl
 
     if pos["qty"] <= 0:

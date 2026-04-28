@@ -115,6 +115,28 @@
         "volatility": 76.8115942029,
         "mean_reversion": 10.0
       }
+    },
+    "440110": {
+      "ticker": "440110",
+      "name": "파두",
+      "entry_price": 81600.0,
+      "entry_date": "2026-04-28",
+      "qty": 2,
+      "initial_qty": 2,
+      "cost_krw": 163200.0,
+      "entry_score": 80.5324016131,
+      "entry_factors": {
+        "momentum": 95.0,
+        "supply_demand": 90.5882352941,
+        "quality": 25.0,
+        "volatility": 93.853427896,
+        "mean_reversion": 10.0
+      },
+      "sector": null,
+      "highest_price": 81600.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0,
+      "mode": "simulation"
     }
   },
   "updated_at": "2026-04-28"

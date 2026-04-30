@@ -116,6 +116,28 @@
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "mode": "simulation"
+    },
+    "126340": {
+      "ticker": "126340",
+      "name": "비나텍",
+      "entry_price": 177900.0,
+      "entry_date": "2026-04-30",
+      "qty": 1,
+      "initial_qty": 1,
+      "cost_krw": 177900.0,
+      "entry_score": 81.5431230463,
+      "entry_factors": {
+        "momentum": 95.0,
+        "supply_demand": 93.2352941176,
+        "quality": 25.0,
+        "volatility": 97.3429951691,
+        "mean_reversion": 10.0
+      },
+      "sector": null,
+      "highest_price": 177900.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0,
+      "mode": "simulation"
     }
   },
   "updated_at": "2026-04-30"

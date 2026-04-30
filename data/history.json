@@ -154,6 +154,16 @@
       "cost_krw": 177900.0,
       "entry_score": 81.5431230463,
       "entry_date": "2026-04-30"
+    },
+    {
+      "ticker": "336370",
+      "name": "솔루스첨단소재",
+      "action": "buy",
+      "qty": 22,
+      "price": 13295.0,
+      "cost_krw": 292490.0,
+      "entry_score": 81.3668125264,
+      "entry_date": "2026-04-30"
     }
   ]
 }

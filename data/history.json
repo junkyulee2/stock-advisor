@@ -144,6 +144,16 @@
       "entry_price": 15825.0,
       "entry_date": "2026-04-24",
       "exit_date": "2026-04-30"
+    },
+    {
+      "ticker": "126340",
+      "name": "비나텍",
+      "action": "buy",
+      "qty": 1,
+      "price": 177900.0,
+      "cost_krw": 177900.0,
+      "entry_score": 81.5431230463,
+      "entry_date": "2026-04-30"
     }
   ]
 }

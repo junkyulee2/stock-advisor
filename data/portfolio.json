@@ -138,6 +138,28 @@
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "mode": "simulation"
+    },
+    "336370": {
+      "ticker": "336370",
+      "name": "솔루스첨단소재",
+      "entry_price": 13295.0,
+      "entry_date": "2026-04-30",
+      "qty": 22,
+      "initial_qty": 22,
+      "cost_krw": 292490.0,
+      "entry_score": 81.3668125264,
+      "entry_factors": {
+        "momentum": 95.0,
+        "supply_demand": 76.9207420494,
+        "quality": 55.2023121387,
+        "volatility": 91.0628019324,
+        "mean_reversion": 10.0
+      },
+      "sector": null,
+      "highest_price": 13295.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0,
+      "mode": "simulation"
     }
   },
   "updated_at": "2026-04-30"

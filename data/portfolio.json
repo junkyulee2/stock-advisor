@@ -1,29 +1,6 @@
 {
   "cash_krw": 0,
   "positions": {
-    "336370": {
-      "ticker": "336370",
-      "name": "솔루스첨단소재",
-      "entry_price": 15825.0,
-      "entry_date": "2026-04-24",
-      "qty": 12,
-      "initial_qty": 12,
-      "cost_krw": 189900.0,
-      "entry_score": 64.3499623407,
-      "sector": null,
-      "highest_price": 16150.0,
-      "partial_taken": false,
-      "realized_pnl_krw": 0,
-      "entry_factors": {
-        "momentum": 95.0,
-        "supply_demand": 54.538632722,
-        "quality": 48.786407767,
-        "volatility": 86.4734299517,
-        "mean_reversion": 10.0
-      },
-      "last_added_date": "2026-04-29",
-      "add_count": 1
-    },
     "456040": {
       "ticker": "456040",
       "name": "OCI",
@@ -141,5 +118,5 @@
       "mode": "simulation"
     }
   },
-  "updated_at": "2026-04-29"
+  "updated_at": "2026-04-30"
 }

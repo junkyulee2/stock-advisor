@@ -120,9 +120,9 @@
       "name": "솔루스첨단소재",
       "entry_price": 13295.0,
       "entry_date": "2026-04-30",
-      "qty": 22,
-      "initial_qty": 22,
-      "cost_krw": 292490.0,
+      "qty": 11,
+      "initial_qty": 11,
+      "cost_krw": 146245.0,
       "entry_score": 81.3668125264,
       "entry_factors": {
         "momentum": 95.0,
@@ -133,8 +133,8 @@
       },
       "sector": null,
       "highest_price": 15430.0,
-      "partial_taken": false,
-      "realized_pnl_krw": 0,
+      "partial_taken": true,
+      "realized_pnl_krw": -2255.0,
       "mode": "simulation"
     },
     "009830": {

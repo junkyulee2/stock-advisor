@@ -174,6 +174,16 @@
       "cost_krw": 253500.0,
       "entry_score": 82.9936462647,
       "entry_date": "2026-05-01"
+    },
+    {
+      "ticker": "009900",
+      "name": "명신산업",
+      "action": "buy",
+      "qty": 22,
+      "price": 13300.0,
+      "cost_krw": 292600.0,
+      "entry_score": 81.6133305592,
+      "entry_date": "2026-05-01"
     }
   ]
 }

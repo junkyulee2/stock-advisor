@@ -164,6 +164,16 @@
       "cost_krw": 292490.0,
       "entry_score": 81.3668125264,
       "entry_date": "2026-04-30"
+    },
+    {
+      "ticker": "009830",
+      "name": "한화솔루션",
+      "action": "buy",
+      "qty": 5,
+      "price": 50700.0,
+      "cost_krw": 253500.0,
+      "entry_score": 82.9936462647,
+      "entry_date": "2026-05-01"
     }
   ]
 }

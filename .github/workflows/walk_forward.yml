@@ -1,0 +1,58 @@
+name: Walk-Forward Backtest (5y)
+
+# Manual trigger only — heavy job, expected ~30-60 min runtime.
+# Runs tools/walk_forward.py with KRX login active (KRX_ID/KRX_PW secrets)
+# so historical fundamentals (PER/PBR/EPS/BPS) are real, not lookahead-biased.
+# Commits results to data/research/walk_forward_*.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run walk-forward backtest
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
+        run: python tools/walk_forward.py
+
+      - name: Commit results
+        run: |
+          git config user.name "stock-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/research/walk_forward_*.csv data/research/walk_forward_*.json
+          if git diff --cached --quiet; then
+            echo "no walk-forward results to commit"
+          else
+            git commit -m "data(bot): walk-forward backtest results $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: walk-forward-results
+          path: data/research/walk_forward_*
+          retention-days: 30

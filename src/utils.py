@@ -12,6 +12,16 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 
+# Load .env file (local dev). On CI (GitHub Actions) the env vars come from
+# Repository Secrets and load_dotenv() is a no-op since .env doesn't exist.
+# Required env vars: KRX_ID, KRX_PW (pykrx fundamentals), DISCORD_WEBHOOK_URL,
+# GITHUB_TOKEN, GITHUB_REPO. ANTHROPIC_API_KEY only if running headless AI.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(PROJECT_ROOT / ".env")
+except ImportError:
+    pass  # dotenv optional — env vars may already be set by shell/CI
+
 
 def load_config(path: Path | str = CONFIG_PATH) -> dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:

@@ -297,6 +297,7 @@ def main():
 
     all_picks = []
     monthly_summary = []
+    factor_panel = []   # full universe scoring + forward returns for IC analysis
     t_start = time.time()
 
     for i, asof_dt in enumerate(dates):
@@ -313,6 +314,35 @@ def main():
         scored = scored.sort_values("total_score", ascending=False)
         picks = scored[scored["total_score"] >= MIN_SCORE].head(TOP_K_PICKS)
         n_eligible = len(scored[scored["total_score"] >= MIN_SCORE])
+
+        # Save FULL universe scoring + simple forward return per ticker for
+        # IC analysis (Phase A 옵션 B deep-dive). buy-and-hold close-to-close
+        # forward return (no sell rules) — convention for IC computation.
+        for ticker in scored.index:
+            tk = str(ticker)
+            full_panel = panels.get(tk)
+            if full_panel is None:
+                continue
+            entry_row = full_panel[full_panel.index <= pd.Timestamp(asof_dt)].tail(1)
+            forward = full_panel[full_panel.index > pd.Timestamp(asof_dt)].head(HOLD_DAYS)
+            if entry_row.empty or len(forward) < 5:
+                continue
+            entry_close = float(entry_row["close"].iloc[0])
+            exit_close = float(forward["close"].iloc[-1])
+            fwd_ret = (exit_close / entry_close - 1) * 100 if entry_close > 0 else 0.0
+            r = scored.loc[ticker]
+            factor_panel.append({
+                "date": asof_dt.strftime("%Y-%m-%d"),
+                "ticker": tk,
+                "total_score": float(r["total_score"]),
+                "momentum": float(r.get("momentum_score", 50)),
+                "quality": float(r.get("quality_score", 50)),
+                "value": float(r.get("value_score", 50)),
+                "volatility": float(r.get("volatility_score", 50)),
+                "mean_reversion": float(r.get("mean_reversion_score", 50)),
+                "iqc_alpha": float(r.get("iqc_alpha_score", 50)),
+                "fwd_return_pct": fwd_ret,
+            })
 
         # KOSPI period return
         end_idx_kospi = kospi_full[kospi_full.index <= pd.Timestamp(asof_dt)].index
@@ -428,6 +458,11 @@ def main():
                                  index=False, encoding="utf-8")
     pd.DataFrame(all_picks).to_csv(out_dir / f"walk_forward_picks_{stamp}.csv",
                                    index=False, encoding="utf-8")
+    if factor_panel:
+        pd.DataFrame(factor_panel).to_csv(
+            out_dir / f"walk_forward_factor_panel_{stamp}.csv",
+            index=False, encoding="utf-8",
+        )
     summary = {
         "generated": datetime.now().isoformat(timespec="seconds"),
         "params": {

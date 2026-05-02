@@ -1,0 +1,34 @@
+{
+  "n_combinations": 94488,
+  "best_by_composite": {
+    "weights": {
+      "momentum": 0,
+      "quality": 0,
+      "value": 14,
+      "volatility": 36,
+      "mean_reversion": 29,
+      "iqc_alpha": 21
+    },
+    "annualized_pct": 114.71,
+    "annualized_sharpe": 1.59,
+    "max_drawdown_pct": -25.94,
+    "cum_return_pct": 4463.32
+  },
+  "current_weights_baseline": {
+    "momentum": 30,
+    "quality": 10,
+    "value": 10,
+    "volatility": 10,
+    "mean_reversion": 10,
+    "iqc_alpha": 5,
+    "result": {
+      "n_months": 60,
+      "monthly_mean_pct": 0.0,
+      "cum_return_pct": 0.0,
+      "annualized_pct": 0.0,
+      "annualized_sharpe": 0,
+      "max_drawdown_pct": 0.0,
+      "win_pct": 0.0
+    }
+  }
+}

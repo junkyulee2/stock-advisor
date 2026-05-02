@@ -166,78 +166,113 @@ def subset_strategy(df: pd.DataFrame, condition: pd.Series, label: str,
 FACTORS = ["momentum", "quality", "value", "volatility", "mean_reversion", "iqc_alpha"]
 
 
-def evaluate_weights(df: pd.DataFrame, weights: dict, top_k: int = 5,
-                     min_score: float = 80) -> dict:
-    """Apply given weights to the panel, simulate top-K monthly picks."""
-    wsum = sum(weights.values())
-    if wsum <= 0:
-        return {"ann_sharpe": -99, "ann_pct": -99}
+_PANEL_CACHE = {}
 
-    # Compute composite per row
-    df = df.copy()
-    composite = sum(df[f] * weights.get(f, 0) for f in FACTORS) / wsum
-    df["composite"] = composite
 
-    monthly_returns = []
+def _prepare_panel(df: pd.DataFrame) -> dict:
+    """Pre-compute per-date numpy arrays once for fast vectorized eval."""
+    if "_prepped" in _PANEL_CACHE:
+        return _PANEL_CACHE
+    by_date = []
     for date, group in df.groupby("date"):
-        picks = group[group["composite"] >= min_score].nlargest(top_k, "composite")
-        if picks.empty:
-            monthly_returns.append(0.0)
+        sub = group[FACTORS + ["fwd_return_pct"]].dropna()
+        if len(sub) < 5:
             continue
-        monthly_returns.append(picks["fwd_return_pct"].mean())
+        by_date.append({
+            "date": date,
+            "factors": sub[FACTORS].to_numpy(dtype=np.float64),
+            "ret": sub["fwd_return_pct"].to_numpy(dtype=np.float64),
+        })
+    _PANEL_CACHE["by_date"] = by_date
+    _PANEL_CACHE["_prepped"] = True
+    return _PANEL_CACHE
 
-    if not monthly_returns:
-        return {"ann_sharpe": -99, "ann_pct": -99}
 
-    s = pd.Series(monthly_returns) / 100.0
-    cum = (1 + s).cumprod().iloc[-1] - 1
-    n = len(s)
+def evaluate_weights_fast(by_date: list, w: np.ndarray, top_k: int,
+                          min_score: float) -> dict:
+    """Vectorized eval — apply weight vector to pre-arrayed panel."""
+    wsum = w.sum()
+    if wsum <= 0:
+        return {"annualized_sharpe": -99, "annualized_pct": -99}
+
+    monthly = []
+    for d in by_date:
+        composite = (d["factors"] @ w) / wsum
+        mask = composite >= min_score
+        if not mask.any():
+            monthly.append(0.0)
+            continue
+        # Top-K from the masked subset
+        eligible_idx = np.where(mask)[0]
+        eligible_comp = composite[eligible_idx]
+        eligible_ret = d["ret"][eligible_idx]
+        if len(eligible_idx) > top_k:
+            top_idx = np.argpartition(-eligible_comp, top_k)[:top_k]
+            monthly.append(float(eligible_ret[top_idx].mean()))
+        else:
+            monthly.append(float(eligible_ret.mean()))
+
+    if not monthly:
+        return {"annualized_sharpe": -99, "annualized_pct": -99}
+
+    arr = np.array(monthly) / 100.0
+    cum = float((1 + arr).prod() - 1)
+    n = len(arr)
     ann = ((1 + cum) ** (12 / n) - 1) * 100 if n else 0
-    sharpe = float(s.mean() / s.std() * np.sqrt(12)) if s.std() > 0 else 0
-    mdd = float(((1 + s).cumprod() / (1 + s).cumprod().cummax() - 1).min() * 100)
+    sharpe = float(arr.mean() / arr.std() * np.sqrt(12)) if arr.std() > 0 else 0
+    cumprod = (1 + arr).cumprod()
+    mdd = float((cumprod / np.maximum.accumulate(cumprod) - 1).min() * 100)
     return {
-        "weights": weights,
         "n_months": n,
-        "monthly_mean_pct": round(float(s.mean() * 100), 2),
+        "monthly_mean_pct": round(float(arr.mean() * 100), 2),
         "cum_return_pct": round(cum * 100, 2),
         "annualized_pct": round(ann, 2),
         "annualized_sharpe": round(sharpe, 2),
         "max_drawdown_pct": round(mdd, 2),
-        "win_pct": round(float((s > 0).mean() * 100), 1),
+        "win_pct": round(float((arr > 0).mean() * 100), 1),
     }
 
 
-def grid_search(df: pd.DataFrame, top_k: int = 5, min_score: float = 80,
-                step: int = 5) -> pd.DataFrame:
-    """Coarse grid: each factor weight in {0, 5, 10, 15, 20, 25, 30}.
-    Total weight normalized; only test subset of combinations."""
-    candidates = []
+def evaluate_weights(df: pd.DataFrame, weights: dict, top_k: int = 5,
+                     min_score: float = 80) -> dict:
+    """Compatible wrapper using fast path. Returns dict including weights."""
+    cache = _prepare_panel(df)
+    w = np.array([weights.get(f, 0) for f in FACTORS], dtype=np.float64)
+    r = evaluate_weights_fast(cache["by_date"], w, top_k, min_score)
+    if "n_months" in r:
+        r["weights"] = weights
+    return r
 
-    # Smart sampling — only generate combos summing to "reasonable" totals.
-    # 6 factors × 7 levels = 117,649 combos — too many. Sample with rules:
-    # at least 3 factors active, total weight 70-110 (will be normalized).
+
+def grid_search(df: pd.DataFrame, top_k: int = 5, min_score: float = 80,
+                step: int = 10) -> pd.DataFrame:
+    """Vectorized grid search. step=10 → 4 levels [0,10,20,30] per factor."""
+    cache = _prepare_panel(df)
+    by_date = cache["by_date"]
+
     levels = list(range(0, 31, step))
+    candidates = []
+    seen = set()
     n_tested = 0
-    seen_keys = set()
+
     for combo in product(levels, repeat=len(FACTORS)):
         total = sum(combo)
         if total < 60 or total > 120:
             continue
-        active = sum(1 for v in combo if v > 0)
-        if active < 3:
+        if sum(1 for v in combo if v > 0) < 3:
             continue
-        # Normalize to sum 100 for canonical comparison
         norm = tuple(round(v * 100 / total) for v in combo)
-        key = norm
-        if key in seen_keys:
+        if norm in seen:
             continue
-        seen_keys.add(key)
-        weights = dict(zip(FACTORS, norm))
-        result = evaluate_weights(df, weights, top_k=top_k, min_score=min_score)
-        candidates.append(result)
+        seen.add(norm)
+        w = np.array(norm, dtype=np.float64)
+        r = evaluate_weights_fast(by_date, w, top_k, min_score)
+        if "n_months" in r:
+            r["weights"] = dict(zip(FACTORS, norm))
+            candidates.append(r)
         n_tested += 1
-    print(f"  grid search evaluated {n_tested} combinations")
-    return pd.DataFrame([c for c in candidates if "weights" in c])
+    print(f"  grid search evaluated {n_tested} combinations (vectorized)")
+    return pd.DataFrame(candidates)
 
 
 # ─── 5. Main ────────────────────────────────────────────────────────

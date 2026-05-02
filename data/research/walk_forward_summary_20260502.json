@@ -1,0 +1,30 @@
+{
+  "generated": "2026-05-02T03:50:34",
+  "params": {
+    "end_date": "2026-04-30",
+    "years_back": 5,
+    "universe_top_n": 200,
+    "top_k_picks": 5,
+    "min_score": 80,
+    "hold_days": 22,
+    "supply_demand_weight_forced_to": 0,
+    "ai_veto_applied": false,
+    "universe_survivorship_bias": true
+  },
+  "results": {
+    "n_months": 61,
+    "months_no_pick": 3,
+    "cum_return_pct": -29.48,
+    "cum_kospi_pct": 113.72,
+    "cum_alpha_pct": -143.2,
+    "annualized_return_pct": -6.64,
+    "annualized_kospi_pct": 16.11,
+    "monthly_mean_pct": 0.21,
+    "monthly_alpha_pct": -1.32,
+    "annualized_sharpe": 0.05,
+    "annualized_sharpe_kospi": 0.69,
+    "max_drawdown_pct": -68.67,
+    "max_drawdown_kospi_pct": -37.25,
+    "win_rate_vs_kospi_pct": 31.1
+  }
+}

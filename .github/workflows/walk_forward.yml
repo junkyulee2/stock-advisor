@@ -14,7 +14,7 @@ permissions:
 jobs:
   backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
         with:
@@ -51,8 +51,9 @@ jobs:
 
       - name: Upload artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: walk-forward-results
           path: data/research/walk_forward_*
           retention-days: 30
+          if-no-files-found: warn

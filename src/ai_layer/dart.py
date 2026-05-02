@@ -120,11 +120,16 @@ def fetch_disclosures(
     *,
     days: int = 30,
     corp_code_map: Optional[dict[str, str]] = None,
+    asof_date: Optional[str] = None,
 ) -> list[dict]:
-    """Fetch DART disclosures for one ticker over the last `days`.
-    Returns [] on no key, no map entry, or API error.
+    """Fetch DART disclosures for one ticker over the last `days` ending at
+    `asof_date` (YYYYMMDD). Defaults to today.
 
+    Returns [] on no key, no map entry, or API error.
     Each row: {date, title, report_no, type_label or None, dart_url}
+
+    `asof_date` enables historical queries (Phase A-veto post-mortem) — fetch
+    only disclosures filed up to that date to avoid lookahead bias.
     """
     api_key = _api_key(config)
     if not api_key:
@@ -136,7 +141,10 @@ def fetch_disclosures(
     if not corp:
         return []
 
-    end = datetime.now()
+    if asof_date:
+        end = datetime.strptime(asof_date, "%Y%m%d")
+    else:
+        end = datetime.now()
     bgn = end - timedelta(days=days)
     params = {
         "crtfc_key": api_key,

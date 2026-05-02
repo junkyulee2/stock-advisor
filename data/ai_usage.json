@@ -1,13 +1,321 @@
 {
   "current_month": "2026-05",
   "monthly_budget_tokens": 8000000,
-  "tokens_used_this_month": 216364,
-  "input_tokens": 195942,
-  "output_tokens": 20422,
-  "calls": 3,
+  "tokens_used_this_month": 2081657,
+  "input_tokens": 2007425,
+  "output_tokens": 74232,
+  "calls": 47,
   "warnings_sent": [],
   "fallback_active": false,
   "daily_log": [
+    {
+      "ts": "2026-05-02 10:25",
+      "input": 42614,
+      "output": 1684,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:24",
+      "input": 42601,
+      "output": 1622,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:23",
+      "input": 41943,
+      "output": 1550,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:23",
+      "input": 42253,
+      "output": 1499,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:22",
+      "input": 41654,
+      "output": 1930,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:22",
+      "input": 42459,
+      "output": 1674,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:21",
+      "input": 42367,
+      "output": 1420,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:21",
+      "input": 40829,
+      "output": 1176,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:20",
+      "input": 42370,
+      "output": 1447,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:20",
+      "input": 42245,
+      "output": 1317,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:19",
+      "input": 41849,
+      "output": 1118,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:19",
+      "input": 42032,
+      "output": 1375,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:18",
+      "input": 42736,
+      "output": 1522,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:18",
+      "input": 41844,
+      "output": 1325,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:17",
+      "input": 41499,
+      "output": 973,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:17",
+      "input": 41080,
+      "output": 931,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:17",
+      "input": 42679,
+      "output": 1722,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:16",
+      "input": 42194,
+      "output": 1834,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:15",
+      "input": 42613,
+      "output": 1862,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:15",
+      "input": 41471,
+      "output": 973,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:14",
+      "input": 42265,
+      "output": 1580,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:14",
+      "input": 41492,
+      "output": 916,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:04",
+      "input": 40361,
+      "output": 1003,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:04",
+      "input": 40167,
+      "output": 1008,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:03",
+      "input": 40258,
+      "output": 1030,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:03",
+      "input": 40451,
+      "output": 1196,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:03",
+      "input": 40088,
+      "output": 979,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:02",
+      "input": 40133,
+      "output": 776,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:02",
+      "input": 40650,
+      "output": 1257,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:01",
+      "input": 40098,
+      "output": 978,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:01",
+      "input": 40421,
+      "output": 994,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:01",
+      "input": 40136,
+      "output": 747,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:00",
+      "input": 40432,
+      "output": 1189,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 10:00",
+      "input": 40440,
+      "output": 1080,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 09:59",
+      "input": 40094,
+      "output": 900,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 09:59",
+      "input": 40224,
+      "output": 808,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 09:59",
+      "input": 40448,
+      "output": 1320,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 09:58",
+      "input": 40039,
+      "output": 884,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 09:58",
+      "input": 40093,
+      "output": 924,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 09:57",
+      "input": 40143,
+      "output": 1031,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 09:57",
+      "input": 40389,
+      "output": 1190,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 09:56",
+      "input": 39976,
+      "output": 724,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 09:56",
+      "input": 40676,
+      "output": 1075,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
+    {
+      "ts": "2026-05-02 09:56",
+      "input": 40677,
+      "output": 1267,
+      "candidates": 1,
+      "note": "ai_veto_postmortem"
+    },
     {
       "ts": "2026-05-01 21:27",
       "input": 65851,

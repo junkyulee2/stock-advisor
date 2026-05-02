@@ -91,15 +91,28 @@ def fetch_universe_and_data(config: dict, as_of: str, limit: int | None = None):
         max_workers=12,
     )
 
-    # Fundamentals — per-ticker Naver main page. Cached weekly.
-    fund_rows = _parallel_fetch(
-        tickers,
-        worker=lambda t: dc.get_fundamental(t),
-        label="fundamentals",
-        max_workers=12,
-        keep_falsy=True,
-    )
-    fundamentals = _fund_dict_to_df(fund_rows)
+    # Fundamentals — pykrx bulk fetch (Phase A-1, 2026-05-02). Replaces
+    # Naver per-ticker scraping: bulk = faster, includes BPS, supports
+    # historical lookups (needed for Phase A-3 backtest). Falls back to
+    # Naver scraping if pykrx fails to maintain availability.
+    fundamentals = pd.DataFrame()
+    try:
+        full_fund = dc.get_fundamental_pykrx(as_of)
+        if not full_fund.empty:
+            fundamentals = full_fund.loc[full_fund.index.intersection(tickers)]
+            logger.info(f"fundamentals (pykrx): {len(fundamentals)}/{len(tickers)} tickers")
+    except Exception as e:
+        logger.warning(f"pykrx fundamental fetch failed: {e} — falling back to Naver")
+
+    if fundamentals.empty:
+        fund_rows = _parallel_fetch(
+            tickers,
+            worker=lambda t: dc.get_fundamental(t),
+            label="fundamentals (naver fallback)",
+            max_workers=12,
+            keep_falsy=True,
+        )
+        fundamentals = _fund_dict_to_df(fund_rows)
 
     # Benchmark
     kospi = dc.get_kospi_ohlcv(start, end)
@@ -180,12 +193,25 @@ def compute_daily_scores(config: dict, as_of: str, limit: int | None = None) -> 
     qual = scorer.compute_quality_absolute(fundamentals, config)
     rev = scorer.compute_mean_reversion_absolute(price_panel, config)
     vol = scorer.compute_volatility_absolute(price_panel, config)
+    val = scorer.compute_value_absolute(fundamentals, config)  # Phase A-1
+
+    # IQC alpha — activated Phase A-4 (2026-05-02) after IC analysis showed
+    # 30d IC +0.32~0.33 (tied with vol_20d). 50/50 blend of iqc1+iqc2 to
+    # avoid double-counting (highly correlated). Weight: 5% in factors block.
+    iqc = scorer.compute_iqc_combined_absolute(price_panel, config)
 
     combined = scorer.combine_scores_absolute(
-        mom, sup, qual, rev, weights, config, volatility=vol,
+        mom, sup, qual, rev, weights, config,
+        volatility=vol, value=val, iqc_alpha=iqc,
     )
     if combined.empty:
         return combined
+
+    # Also attach raw iqc1/iqc2 sub-scores for transparency (not weighted again).
+    if not iqc.empty:
+        sub_cols = [c for c in ("iqc_alpha1_score", "iqc_alpha2_score") if c in iqc.columns]
+        if sub_cols:
+            combined = combined.join(iqc[sub_cols], how="left")
 
     combined = combined.merge(
         universe[["ticker", "name", "market", "close", "market_cap"]].set_index("ticker"),
@@ -242,6 +268,8 @@ def recommend_top3(df: pd.DataFrame, config: dict) -> list[dict]:
                 "supply": float(row.get("supply_demand_score", 0)),
                 "quality": float(row.get("quality_score", 0)),
                 "reversion": float(row.get("mean_reversion_score", 0)),
+                "volatility": float(row.get("volatility_score", 0)),
+                "value": float(row.get("value_score", 0)),
             },
         })
     return picks
@@ -336,12 +364,22 @@ def main():
                 logger.info("no picks passed minimum score threshold")
 
             # Factor-degradation alerts for held positions (warn/sell only).
-            # Walks today's score rows and compares against each position's
-            # snapshot entry_factors. Notifies via Discord on level=warn or sell.
             try:
                 check_degradation_alerts(df, config)
             except Exception as e:
                 logger.warning(f"degradation check failed: {e}")
+
+            # AI verdict layer (Phase C). Score 70+ candidates get qualitative
+            # review (DART disclosures + factor context + recursive memory).
+            # Failures are non-fatal — recommendation page falls back to
+            # score-only when verdicts are missing.
+            try:
+                if config.get("ai_layer", {}).get("enabled", False):
+                    from src.ai_layer import verdict
+                    candidate_rows = df.reset_index().to_dict("records")
+                    verdict.evaluate(config, candidate_rows, persist=True)
+            except Exception as e:
+                logger.warning(f"AI verdict layer failed: {e}")
 
     if args.mode in ("signals", "both"):
         alerts = check_sell_signals(config, as_of)

@@ -1,0 +1,33 @@
+{
+  "current_month": "2026-05",
+  "monthly_budget_tokens": 8000000,
+  "tokens_used_this_month": 216364,
+  "input_tokens": 195942,
+  "output_tokens": 20422,
+  "calls": 3,
+  "warnings_sent": [],
+  "fallback_active": false,
+  "daily_log": [
+    {
+      "ts": "2026-05-01 21:27",
+      "input": 65851,
+      "output": 4930,
+      "candidates": 4,
+      "note": "verdict.evaluate"
+    },
+    {
+      "ts": "2026-05-01 21:25",
+      "input": 67156,
+      "output": 9664,
+      "candidates": 4,
+      "note": "verdict.evaluate"
+    },
+    {
+      "ts": "2026-05-01 21:21",
+      "input": 62935,
+      "output": 5828,
+      "candidates": 3,
+      "note": "verdict.evaluate"
+    }
+  ]
+}

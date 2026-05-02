@@ -3,7 +3,10 @@
 
 universe:
   markets: [KOSPI, KOSDAQ]
-  top_n_by_market_cap: 500
+  # 2026-05-02: 500 → 200 based on replay validation (docs/replay_threshold_2026-05-02.md).
+  # 200 universe alpha -0.96% vs 500 universe alpha -3.99%. 시총 상위가
+  # 더 안정적이고 80점대 초반 손실 픽 비율이 낮음.
+  top_n_by_market_cap: 200
 
   # Pre-filters (exclude before scoring)
   filters:
@@ -17,11 +20,17 @@ universe:
 # See docs/factor_research_2026-04-25.md
 scoring:
   factors:
-    momentum:       35   # was 40 — ret_60d weak (IC 0.094)
-    supply_demand:  25   # was 30
-    quality:        15   # was 20
-    volatility:     10   # NEW — vol_20d strongest 15d signal (IC +0.311)
-    mean_reversion: 15   # was 10 — strong 30d IC (+0.185)
+    # Phase A-1 (2026-05-02): value 팩터 신규 분리 (가중치 10).
+    # Quality에 묻혀있던 PBR_inv/EarningsYield를 순수 저평가 팩터로 독립.
+    # 출처: WorldQuant IQC Alpha 3 (Sharpe 2.00) + Fama-French HML +
+    # Korea Value-up 정책 모멘텀. IC 백테스트는 Phase A-3에서 검증.
+    momentum:       30   # was 35 — 5pt to value
+    supply_demand:  25
+    quality:        10   # was 15 — 5pt to value (PBR_inv 분리)
+    value:          10   # Phase A-1 — pure cheapness (B/P + E/P)
+    volatility:     10   # vol_20d strongest 15d signal (IC +0.311 on 2026-04-25)
+    mean_reversion: 10   # was 15 — 5pt to iqc_alpha (30d reversion 의미 중첩)
+    iqc_alpha:      5    # Phase A-4 — IQC2025 우승 alpha (한국 30d IC +0.32~0.33)
 
   # Absolute thresholds for each factor (linear interpolation between points).
   # Values are sorted by `value` asc; between points the score is interpolated.
@@ -101,6 +110,27 @@ scoring:
         - {value: 0.5, score: 50}
         - {value: 0.2, score: 25}
 
+    # Phase A-1 (2026-05-02): pure value factor thresholds.
+    # Calibrated for KOSPI/KOSDAQ context where avg PBR ~0.84 (Korea discount).
+    # Tighter thresholds than quality.pbr_inv to reward extreme cheapness.
+    value:
+      # Earnings yield = 1/PER (higher = cheaper)
+      earnings_yield:
+        - {value: 0.20, score: 95}   # PER ~5
+        - {value: 0.12, score: 85}   # PER ~8
+        - {value: 0.08, score: 70}   # PER ~12
+        - {value: 0.05, score: 50}   # PER 20 (market avg)
+        - {value: 0.03, score: 25}   # PER ~33
+        - {value: 0.00, score: 5}    # loss-making or extreme growth premium
+      # Book yield = 1/PBR (higher = cheaper). KOSPI median ~1.2/PBR (PBR 0.84).
+      book_yield:
+        - {value: 2.50, score: 95}   # PBR 0.4 — deep value
+        - {value: 1.70, score: 85}   # PBR ~0.6
+        - {value: 1.20, score: 70}   # PBR ~0.84 (KOSPI avg)
+        - {value: 0.80, score: 50}   # PBR 1.25
+        - {value: 0.40, score: 25}   # PBR 2.5
+        - {value: 0.20, score: 5}    # PBR 5+ (growth/expensive)
+
     mean_reversion:
       # RSI oversold: lower RSI when in rebound = higher score
       rsi_when_rebounding:
@@ -144,6 +174,19 @@ scoring:
     earnings_yield_weight: 30   # EPS/Price (sector percentile)
     debt_ratio_weight:     20   # Lower debt better
     op_margin_weight:      10   # Operating margin
+
+  # Phase A-1 (2026-05-02): pure value factor sub-weights.
+  # 50/50 split between earnings yield (E/P) and book yield (B/P).
+  # Both are robust value metrics; 50/50 avoids over-fitting to one.
+  value:
+    earnings_yield_weight: 50   # 1/PER
+    book_yield_weight:     50   # 1/PBR
+
+  # Phase A-4 (2026-05-02): IQC composite. iqc1 and iqc2 are highly correlated
+  # so weighted-blend rather than separate factors avoids double-counting.
+  iqc_alpha:
+    alpha1_weight: 50   # (high+low)/2 - close, normalized
+    alpha2_weight: 50   # vwap_proxy reversion / rank(days_since_30d_max)
 
   mean_reversion:
     # Only applies when signal is present; otherwise 0
@@ -233,9 +276,39 @@ notify:
   morning_recommend_time: "08:55"
   sell_check_times: ["09:30", "11:30", "13:30", "15:00"]
 
+# AI Layer (Phase C — Claude Code Max 5x qualitative filter)
+# See docs/REDESIGN_2026-05.md for architecture.
+ai_layer:
+  enabled: true
+  # Claude Code CLI binary; auto-detected if null. Override for non-default install.
+  claude_cli_path: null
+  model: claude-opus-4-7
+  # Token budget — separate from user's other Claude usage.
+  # Each cold call has ~50K cache_creation overhead (Claude Code's coding system
+  # prompt being cached). Daily content ≈ 150K input + 20K output. So:
+  # ~220K tok/call × 30 days = ~6.6M/month. Bump if alerts trip too often.
+  monthly_budget_tokens: 8_000_000
+  # Daily soft cap (warning, doesn't block); hard cap is monthly only.
+  daily_warn_tokens: 500_000
+  warn_pct: [50, 80]                # Discord alerts at these monthly-budget %s
+  fallback_on_cap: true             # Skip AI gracefully when monthly budget hit
+  # Score range to evaluate. <70 not worth AI tokens; 70+ to catch borderline picks.
+  min_score_for_ai: 70
+  # Per-run candidate limit (safety against runaway costs)
+  max_candidates_per_run: 50
+  # Per-call timeout (seconds). Single batch call processes all candidates.
+  timeout_seconds: 180
+  # DART disclosure window (days backward)
+  dart_lookback_days: 30
+  # DART API key env var name (free key from opendart.fss.or.kr)
+  dart_api_key_env: DART_API_KEY
+
 # Paths
 paths:
   scores_dir: data/scores
   portfolio: data/portfolio.json
   history: data/history.json
   backtest_results: data/backtest
+  ai_usage: data/ai_usage.json
+  ai_verdicts_dir: data/ai_verdicts
+  ai_lessons: data/ai_lessons.md

@@ -1,0 +1,52 @@
+{
+  "as_of": "20260501",
+  "ts": "2026-05-01T21:27:07",
+  "verdicts": [
+    {
+      "ticker": "375500",
+      "verdict": "PASS",
+      "confidence": 0.82,
+      "reasoning": "30일 공시 위험 신호 없고, mean_reversion 50.0으로 균형잡혀 과열 추격 우려 낮음.",
+      "red_flags": [],
+      "self_critique_notes": "Mean_reversion 50.0이 타종목(10.0) 대비 실질 의미 있는가? 직전 PASS 판단과 일치하며, 공시 위험 전무하므로 PASS 정당. 과신 우려는 낮음."
+    },
+    {
+      "ticker": "456040",
+      "verdict": "CAUTION",
+      "confidence": 0.78,
+      "reasoning": "Momentum 95.0 + mean_reversion 10.0 조합이 단기 추격 신호. 공시 위험은 없으나 기술적 과열 가능성.",
+      "red_flags": [
+        "momentum_spike: 95.0 (매우 높음)",
+        "mean_reversion_low: 10.0 (극히 낮음)",
+        "추격매수 패턴"
+      ],
+      "self_critique_notes": "Momentum 단독으로는 CAUTION 이유 부족. 하지만 mean_reversion 10.0과 조합되면 추격의 전형적 신호. 직전 CAUTION과 일치. 과민반응 아님."
+    },
+    {
+      "ticker": "009830",
+      "verdict": "CAUTION",
+      "confidence": 0.65,
+      "reasoning": "직전 REJECT는 테스트용이며, 현재 공시 데이터 비어있음. Factor 패턴(momentum 95, mean_reversion 10) 기준 OCI와 동일한 추격 신호.",
+      "red_flags": [
+        "momentum_spike: 95.0",
+        "mean_reversion_low: 10.0",
+        "past_verdict_inconsistency: REJECT → CAUTION (테스트 데이터 반영)"
+      ],
+      "self_critique_notes": "직전 REJECT를 상향 검토하는 것 맞는가? 현재 disclosures_30d 비어있고, 테스트 목적이라고 명시되어 있음. OCI와 거의 동일한 factor 구성이므로 일관성 있게 CAUTION. Confidence 낮게 유지."
+    },
+    {
+      "ticker": "009900",
+      "verdict": "CAUTION",
+      "confidence": 0.75,
+      "reasoning": "Momentum 94.8 + mean_reversion 10.0 추격 신호, supply_demand 63.3 약화. 공시 위험은 없으나 기술적·유동성 우려.",
+      "red_flags": [
+        "momentum_spike: 94.8",
+        "mean_reversion_low: 10.0",
+        "supply_demand_weak: 63.3 (동료 대비 저수준)",
+        "외인_흐름_약화_신호"
+      ],
+      "self_critique_notes": "Supply_demand 63.3이 의미 있는가? 4개 중 유일하게 낮지만, 여전히 60+ 수준. 명시적 공시 위험 없음. Momentum/mean_reversion 조합이 주 근거. CAUTION 정당."
+    }
+  ],
+  "batch_summary": ""
+}

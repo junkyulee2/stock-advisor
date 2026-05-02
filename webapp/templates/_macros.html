@@ -3,17 +3,30 @@
 {% macro stock_card(rec, buyable=False, muted=False) %}
 {% set score = rec.total_score|float %}
 {% set below = score < min_score %}
-<div class="scard {% if muted %}muted{% endif %}">
+{% set verdict = rec.ai_verdict or 'UNREVIEWED' %}
+{% set ai_blocked = verdict == 'REJECT' %}
+<div class="scard verdict-{{ verdict|lower }} {% if muted %}muted{% endif %}">
   <div class="scard-head">
     <div>
       <div class="scard-name">{{ rec.name }}</div>
       <div class="scard-tk">{{ rec.ticker }} · {{ rec.market or '-' }}</div>
     </div>
-    {% if buyable %}
-      <span class="badge b-buy">🏆 {{ rec.rank }}위</span>
-    {% else %}
-      <span class="badge b-ref">📋 차순위 {{ rec.rank }}위</span>
-    {% endif %}
+    <div class="scard-badges">
+      {% if buyable %}
+        <span class="badge b-buy">🏆 {{ rec.rank }}위</span>
+      {% else %}
+        <span class="badge b-ref">📋 차순위 {{ rec.rank }}위</span>
+      {% endif %}
+      {% if verdict == 'PASS' %}
+        <span class="badge b-pass" title="AI 검증 통과 (신뢰도 {{ '%.0f'|format(rec.ai_confidence * 100) }}%)">✅ AI PASS</span>
+      {% elif verdict == 'CAUTION' %}
+        <span class="badge b-caution" title="AI 주의 (신뢰도 {{ '%.0f'|format(rec.ai_confidence * 100) }}%)">⚠️ AI 주의</span>
+      {% elif verdict == 'REJECT' %}
+        <span class="badge b-reject" title="AI 거부 (신뢰도 {{ '%.0f'|format(rec.ai_confidence * 100) }}%)">⛔ AI 거부</span>
+      {% else %}
+        <span class="badge b-unreviewed" title="AI 검증 미실시">— 미검증</span>
+      {% endif %}
+    </div>
   </div>
 
   <div class="scard-row">
@@ -38,7 +51,7 @@
     </div>
   </div>
 
-  <div class="factors factors-5">
+  <div class="factors factors-7">
     <div class="factor">
       <div class="factor-label">모멘텀</div>
       <div class="factor-row">
@@ -60,6 +73,13 @@
         <div class="factor-mini"><span style="width:{{ rec.quality_score|default(0)|float|round|int }}%;background:var(--purple);"></span></div>
       </div>
     </div>
+    <div class="factor factor-new" title="저평가 (B/P + E/P) — Phase A-1 신규">
+      <div class="factor-label">저평가★</div>
+      <div class="factor-row">
+        <div class="factor-val">{{ rec.value_score|default(0)|float|round|int }}</div>
+        <div class="factor-mini"><span style="width:{{ rec.value_score|default(0)|float|round|int }}%;background:#06b6d4;"></span></div>
+      </div>
+    </div>
     <div class="factor">
       <div class="factor-label">변동성</div>
       <div class="factor-row">
@@ -74,23 +94,61 @@
         <div class="factor-mini"><span style="width:{{ rec.mean_reversion_score|default(0)|float|round|int }}%;background:var(--yellow);"></span></div>
       </div>
     </div>
+    <div class="factor factor-new" title="IQC 2025 우승 alpha 한국판 — Phase A-2/A-4">
+      <div class="factor-label">IQC★</div>
+      <div class="factor-row">
+        <div class="factor-val">{{ rec.iqc_alpha_score|default(0)|float|round|int }}</div>
+        <div class="factor-mini"><span style="width:{{ rec.iqc_alpha_score|default(0)|float|round|int }}%;background:#f97316;"></span></div>
+      </div>
+    </div>
   </div>
 
-  {% if buyable and cloud_mode %}
-  {# Default amount = score-based recommendation (50k/100k/200k/300k). UI keeps hidden input
-     in sync with visually-on pill so what user sees == what gets submitted. #}
-  {% set default_amt = rec.amount_krw or 50000 %}
-  <form class="scard-actions" hx-post="/actions/buy" hx-target="#toast-region" hx-swap="innerHTML">
-    <input type="hidden" name="ticker" value="{{ rec.ticker }}">
-    <input type="hidden" name="amount_krw" value="{{ default_amt }}">
-    <div class="amt-pills">
-      <button type="button" class="amt-pill {% if default_amt == 50000 %}on{% endif %}" data-amount="50000">5만</button>
-      <button type="button" class="amt-pill {% if default_amt == 100000 %}on{% endif %}" data-amount="100000">10만</button>
-      <button type="button" class="amt-pill {% if default_amt == 200000 %}on{% endif %}" data-amount="200000">20만</button>
-      <button type="button" class="amt-pill {% if default_amt == 300000 %}on{% endif %}" data-amount="300000">30만</button>
+  {% if rec.ai_reasoning %}
+  <div class="ai-panel ai-panel-{{ verdict|lower }}">
+    <div class="ai-panel-head">
+      {% if verdict == 'PASS' %}AI 검증{% elif verdict == 'CAUTION' %}AI 주의{% else %}AI 거부 사유{% endif %}
+      <span class="ai-conf mono">신뢰도 {{ '%.0f'|format(rec.ai_confidence * 100) }}%</span>
     </div>
-    <button type="submit" class="btn-primary">매수 →</button>
-  </form>
+    <div class="ai-panel-body">{{ rec.ai_reasoning }}</div>
+    {% if rec.ai_red_flags %}
+    <ul class="ai-flags">
+      {% for f in rec.ai_red_flags %}<li>🚩 {{ f }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if buyable and cloud_mode %}
+  {% set default_amt = rec.amount_krw or 50000 %}
+  {% if ai_blocked %}
+    {# AI REJECT: hide default buy form. Power user can override via collapsible. #}
+    <details class="scard-override">
+      <summary>AI 거부됨 — 그래도 매수하기</summary>
+      <form class="scard-actions" hx-post="/actions/buy" hx-target="#toast-region" hx-swap="innerHTML">
+        <input type="hidden" name="ticker" value="{{ rec.ticker }}">
+        <input type="hidden" name="amount_krw" value="{{ default_amt }}">
+        <div class="amt-pills">
+          <button type="button" class="amt-pill {% if default_amt == 50000 %}on{% endif %}" data-amount="50000">5만</button>
+          <button type="button" class="amt-pill {% if default_amt == 100000 %}on{% endif %}" data-amount="100000">10만</button>
+          <button type="button" class="amt-pill {% if default_amt == 200000 %}on{% endif %}" data-amount="200000">20만</button>
+          <button type="button" class="amt-pill {% if default_amt == 300000 %}on{% endif %}" data-amount="300000">30만</button>
+        </div>
+        <button type="submit" class="btn-warning">⚠ 강제 매수</button>
+      </form>
+    </details>
+  {% else %}
+    <form class="scard-actions" hx-post="/actions/buy" hx-target="#toast-region" hx-swap="innerHTML">
+      <input type="hidden" name="ticker" value="{{ rec.ticker }}">
+      <input type="hidden" name="amount_krw" value="{{ default_amt }}">
+      <div class="amt-pills">
+        <button type="button" class="amt-pill {% if default_amt == 50000 %}on{% endif %}" data-amount="50000">5만</button>
+        <button type="button" class="amt-pill {% if default_amt == 100000 %}on{% endif %}" data-amount="100000">10만</button>
+        <button type="button" class="amt-pill {% if default_amt == 200000 %}on{% endif %}" data-amount="200000">20만</button>
+        <button type="button" class="amt-pill {% if default_amt == 300000 %}on{% endif %}" data-amount="300000">30만</button>
+      </div>
+      <button type="submit" class="btn-primary">매수 →</button>
+    </form>
+  {% endif %}
   {% elif buyable and not cloud_mode %}
   <div class="dim" style="font-size:12px;text-align:center;padding:6px;">로컬 모드 — 매수 비활성</div>
   {% endif %}

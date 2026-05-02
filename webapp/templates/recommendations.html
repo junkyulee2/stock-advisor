@@ -39,6 +39,22 @@
 </div>
 {% endif %}
 
+{# Phase A-5 (2026-05-02) — 저평가 픽 별도 섹션. value_score ≥80 종목 중
+   recommendations에 이미 안 나온 것 5개. WorldQuant IQC Alpha 3 영감. #}
+{% if value_picks %}
+<h3 class="section-title">💎 저평가 픽 (B/P + E/P 80점 이상)</h3>
+<div class="muted-sub" style="font-size:12px;color:var(--ink-3);margin-bottom:8px;">
+  WorldQuant IQC 2025 Alpha 3 + Fama-French HML 영감. 한국 PBR 0.84 환경
+  + Korea Value-up 정책 모멘텀. 마지노선({{ min_score }}점) 미달이면
+  매수 버튼은 비활성, 참고용으로만.
+</div>
+<div class="cards">
+  {% for rec in value_picks %}
+    {{ stock_card(rec, buyable=(rec.total_score|float >= min_score), muted=(rec.total_score|float < min_score)) }}
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if references %}
 <h3 class="section-title">📋 차순위 참고 (매수 불가)</h3>
 <div class="cards">

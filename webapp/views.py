@@ -12,6 +12,7 @@ from .data_layer import (
     load_portfolio, load_history, latest_scores, previous_scores,
 )
 from .price_fetcher import fetch_current_prices, fetch_price_history
+from src.ai_layer import verdict as ai_verdict
 
 MIN_SCORE_TO_BUY = int(CONFIG["portfolio_limits"]["min_score_to_buy"])
 MAX_POSITIONS = int(CONFIG["portfolio_limits"].get("max_concurrent_positions", 10))
@@ -54,14 +55,29 @@ def _amount_for_score(score: float) -> int:
     return 0
 
 
-def _enrich_score_row(row: dict, prev_map: dict, today_rank: int) -> dict:
-    """Add derived fields used by templates: rank, badge, sizing."""
+def _enrich_score_row(row: dict, prev_map: dict, today_rank: int,
+                      verdicts: dict | None = None) -> dict:
+    """Add derived fields used by templates: rank, badge, sizing, AI verdict."""
     score = float(row.get("total_score", 0))
     out = dict(row)
     out["rank"] = today_rank
     out["delta"] = _rank_delta(row["ticker"], today_rank, prev_map)
     if not row.get("amount_krw"):
         out["amount_krw"] = _amount_for_score(score)
+
+    # AI verdict (Phase C). Absent → "UNREVIEWED" sentinel; UI shows neutral
+    # state and allows buy without override (fallback to score-only mode).
+    v = (verdicts or {}).get(row["ticker"])
+    if v:
+        out["ai_verdict"] = v.get("verdict")        # PASS / CAUTION / REJECT
+        out["ai_confidence"] = float(v.get("confidence", 0) or 0)
+        out["ai_reasoning"] = v.get("reasoning", "")
+        out["ai_red_flags"] = v.get("red_flags") or []
+    else:
+        out["ai_verdict"] = "UNREVIEWED"
+        out["ai_confidence"] = 0.0
+        out["ai_reasoning"] = ""
+        out["ai_red_flags"] = []
     return out
 
 
@@ -82,12 +98,15 @@ def build_dashboard_context() -> dict:
     prev_map = _rank_map(prev_scores_data)
     held_tickers = set(positions.keys())
 
+    # AI verdicts (Phase C). Absent → UNREVIEWED state on each row.
+    verdicts = ai_verdict.latest_verdicts(CONFIG)
+
     # Recommendations: 80+ excluding held
     recs_raw = [s for s in scores
                 if float(s.get("total_score", 0)) >= MIN_SCORE_TO_BUY
                 and s["ticker"] not in held_tickers]
     recommendations = [
-        _enrich_score_row(s, prev_map, today_rank=i + 1)
+        _enrich_score_row(s, prev_map, today_rank=i + 1, verdicts=verdicts)
         for i, s in enumerate(recs_raw[:5])
     ]
 
@@ -96,7 +115,7 @@ def build_dashboard_context() -> dict:
     if not recommendations:
         ref_raw = [s for s in scores if s["ticker"] not in held_tickers][:2]
         references = [
-            _enrich_score_row(s, prev_map, today_rank=i + 1)
+            _enrich_score_row(s, prev_map, today_rank=i + 1, verdicts=verdicts)
             for i, s in enumerate(ref_raw)
         ]
 
@@ -146,11 +165,14 @@ def build_recommendations_context() -> dict:
     prev_map = _rank_map(prev_scores_data)
     held_tickers = set(portfolio.get("positions", {}).keys())
 
+    # AI verdicts (Phase C). Absent → UNREVIEWED state on each row.
+    verdicts = ai_verdict.latest_verdicts(CONFIG)
+
     recs_raw = [s for s in scores
                 if float(s.get("total_score", 0)) >= MIN_SCORE_TO_BUY
                 and s["ticker"] not in held_tickers]
     recommendations = [
-        _enrich_score_row(s, prev_map, today_rank=i + 1)
+        _enrich_score_row(s, prev_map, today_rank=i + 1, verdicts=verdicts)
         for i, s in enumerate(recs_raw[:20])
     ]
 
@@ -158,11 +180,28 @@ def build_recommendations_context() -> dict:
     if not recommendations:
         ref_raw = [s for s in scores if s["ticker"] not in held_tickers][:2]
         references = [
-            _enrich_score_row(s, prev_map, today_rank=i + 1)
+            _enrich_score_row(s, prev_map, today_rank=i + 1, verdicts=verdicts)
             for i, s in enumerate(ref_raw)
         ]
 
     top_score = float(scores[0]["total_score"]) if scores else 0.0
+
+    # Phase A-5 (2026-05-02): Value picks — top-5 by value_score regardless
+    # of total_score. Surfaces 저평가 종목 separately so users can see them
+    # even when total_score doesn't clear the 80 threshold.
+    value_sorted = sorted(
+        (s for s in scores
+         if s["ticker"] not in held_tickers
+         and s.get("value_score") is not None
+         and float(s.get("value_score", 0)) >= 80),
+        key=lambda x: -float(x.get("value_score", 0)),
+    )
+    seen_in_recs = {r["ticker"] for r in recommendations}
+    value_picks = [
+        _enrich_score_row(s, prev_map, today_rank=i + 1, verdicts=verdicts)
+        for i, s in enumerate(value_sorted[:5])
+        if s["ticker"] not in seen_in_recs
+    ]
 
     return {
         "scores_date": _filename_to_date(scores_file),
@@ -174,6 +213,7 @@ def build_recommendations_context() -> dict:
 
         "recommendations": recommendations,
         "references": references,
+        "value_picks": value_picks,
         "cloud_mode": CLOUD_MODE,
     }
 

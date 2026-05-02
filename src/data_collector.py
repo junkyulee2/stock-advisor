@@ -247,3 +247,45 @@ def get_fundamental_bulk(as_of: str, tickers: list[str] = None) -> pd.DataFrame:
         })
     df = pd.DataFrame(data).set_index("ticker")
     return df
+
+
+# ============================================================
+# pykrx — historical fundamentals (PHASE A-1 NEW)
+# ============================================================
+# Naver scraping above gives current snapshot only. pykrx hits KRX official
+# endpoints and supports historical date lookups, returns BPS (which Naver
+# scraper missed), and is bulk (one call per market vs N calls per ticker).
+# Used by: Value factor (compute_value_absolute) + replaces Naver path in
+# run_daily.py for current-day fundamentals as well.
+
+def _pykrx_fund_cache_key(as_of: str) -> str:
+    return f"pykrx_fund_{as_of}"
+
+
+@disk_cached(_pykrx_fund_cache_key, ttl=TTL_WEEK)
+def get_fundamental_pykrx(as_of: str) -> pd.DataFrame:
+    """Bulk fundamentals at as_of date for KOSPI+KOSDAQ via pykrx.
+
+    Returns DataFrame indexed by ticker with columns:
+      PER, PBR, EPS, BPS, DIV, DPS
+    Empty rows (PER=0 etc.) mean the company was loss-making or unlisted.
+    """
+    from pykrx import stock as kx
+    frames = []
+    for market in ("KOSPI", "KOSDAQ"):
+        try:
+            df = kx.get_market_fundamental(as_of, market=market)
+        except Exception as e:
+            logger.warning(f"pykrx fundamental fetch fail {market} {as_of}: {e}")
+            continue
+        if df is None or df.empty:
+            continue
+        frames.append(df)
+    if not frames:
+        return pd.DataFrame()
+    df = pd.concat(frames)
+    # pykrx returns columns: BPS, PER, PBR, EPS, DIV, DPS — already uppercase.
+    # Index is ticker code (string, 6-digit).
+    df.index.name = "ticker"
+    df.index = df.index.astype(str).str.zfill(6)
+    return df

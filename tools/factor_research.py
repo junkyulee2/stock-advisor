@@ -35,10 +35,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-NOW_DATE = datetime(2026, 4, 24)         # last trading day (Friday)
+NOW_DATE = datetime(2026, 4, 30)         # last trading day; bump on each re-run
 LOOKBACK_DAYS = [30, 15]
 TOP_N = 300                                # top by market cap
 EXTRA_HISTORY = 130                        # ~60 trading days back (90 cal days too few w/ holidays)
+
+# Phase A-2 candidate factors added 2026-05-02. Value/quality factors require
+# historical PER/PBR which needs KRX_ID configured for pykrx — not yet wired.
 
 
 def get_universe(top_n: int = TOP_N) -> list[str]:
@@ -50,10 +53,19 @@ def get_universe(top_n: int = TOP_N) -> list[str]:
     return df["ticker"].astype(str).tolist()
 
 
-def compute_features(close: pd.Series, asof_idx: int) -> dict | None:
-    """Features computed using prices up to asof_idx (inclusive). Returns None if insufficient."""
+def compute_features(df: pd.DataFrame, asof_idx: int) -> dict | None:
+    """Features computed using OHLC up to asof_idx (inclusive). Returns None if insufficient.
+
+    Phase A-2 (2026-05-02): now takes full OHLC df instead of close-only so we
+    can compute IQC Alpha 1 (intraday midpoint reversion) and Alpha 2 (vwap-
+    proxy reversion weighted by recency of 30d peak).
+    """
     if asof_idx < 60:
         return None
+    close = df["Close"].astype(float)
+    high = df["High"].astype(float) if "High" in df.columns else close
+    low = df["Low"].astype(float) if "Low" in df.columns else close
+
     p = close.iloc[asof_idx]
     if p <= 0 or pd.isna(p):
         return None
@@ -95,6 +107,18 @@ def compute_features(close: pd.Series, asof_idx: int) -> dict | None:
     else:
         pct_b = np.nan
 
+    # IQC Alpha 1 (Glazar 2025): ((high+low)/2 - close) / close
+    h, l = high.iloc[asof_idx], low.iloc[asof_idx]
+    iqc_alpha1 = ((h + l) / 2.0 - p) / p if (h > 0 and l > 0) else np.nan
+
+    # IQC Alpha 2: vwap_proxy reversion / days-since-30d-max (rank applied later cross-sectionally)
+    # Note: rank-based divisor requires cross-section; we record raw inputs here
+    # and compute the final composite during analyze().
+    vwap_proxy = (h + l + p) / 3.0 if (h > 0 and l > 0) else p
+    vwap_dev = (vwap_proxy - p) / p
+    close_30 = close.iloc[asof_idx - 29: asof_idx + 1].reset_index(drop=True)
+    days_since_30d_max = (len(close_30) - 1) - int(close_30.idxmax()) if len(close_30) >= 30 else np.nan
+
     return {
         "ret_5d": ret_5d,
         "ret_20d": ret_20d,
@@ -104,6 +128,9 @@ def compute_features(close: pd.Series, asof_idx: int) -> dict | None:
         "rsi": rsi,
         "vol_20d": vol_20d,
         "pct_b": pct_b,
+        "iqc_alpha1": iqc_alpha1,
+        "iqc2_vwap_dev": vwap_dev,
+        "iqc2_dsm": days_since_30d_max,
     }
 
 
@@ -131,7 +158,7 @@ def collect_dataset(lookback_days: int) -> pd.DataFrame:
             if asof_idx < 60 or asof_idx >= len(close) - 1:
                 continue
 
-            features = compute_features(close, asof_idx)
+            features = compute_features(df, asof_idx)
             if features is None:
                 continue
 
@@ -163,7 +190,18 @@ def analyze(df: pd.DataFrame, lookback_days: int) -> None:
     print(f"  mean={fr.mean()*100:+.2f}%  median={fr.median()*100:+.2f}%  std={fr.std()*100:.2f}%")
     print(f"  min={fr.min()*100:+.1f}%  max={fr.max()*100:+.1f}%  n={len(fr)}")
 
-    feature_cols = ["ret_5d", "ret_20d", "ret_60d", "ma20_dev", "ma60_dev", "rsi", "vol_20d", "pct_b"]
+    # IQC Alpha 2 composite: vwap_dev divided by cross-sectional rank of dsm,
+    # capped at 0.15 (per Glazar formula). Computed here because rank is
+    # cross-sectional; raw vwap_dev and dsm collected per-ticker upstream.
+    if "iqc2_dsm" in df.columns and "iqc2_vwap_dev" in df.columns:
+        valid_dsm = df["iqc2_dsm"].dropna()
+        if len(valid_dsm) >= 30:
+            dsm_rank = df["iqc2_dsm"].rank(pct=True).clip(lower=0.01, upper=0.15)
+            df["iqc_alpha2"] = df["iqc2_vwap_dev"] / dsm_rank
+
+    feature_cols = ["ret_5d", "ret_20d", "ret_60d", "ma20_dev", "ma60_dev",
+                    "rsi", "vol_20d", "pct_b",
+                    "iqc_alpha1", "iqc_alpha2"]  # Phase A-2 candidates
 
     print(f"\n--- Spearman IC (rank correlation with forward return) ---")
     print(f"{'feature':<12}{'IC':>8}{'sample':>10}")
@@ -225,16 +263,18 @@ def main():
     print("\n" + "=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"{'feature':<12}{'IC 30d':>10}{'IC 15d':>10}")
-    print("-" * 32)
-    feature_cols = ["ret_5d", "ret_20d", "ret_60d", "ma20_dev", "ma60_dev", "rsi", "vol_20d", "pct_b"]
+    print(f"{'feature':<14}{'IC 30d':>10}{'IC 15d':>10}")
+    print("-" * 34)
+    feature_cols = ["ret_5d", "ret_20d", "ret_60d", "ma20_dev", "ma60_dev",
+                    "rsi", "vol_20d", "pct_b",
+                    "iqc_alpha1", "iqc_alpha2"]
     for col in feature_cols:
         ic30 = all_ic.get(30, {}).get(col, np.nan)
         ic15 = all_ic.get(15, {}).get(col, np.nan)
         if not np.isnan(ic30) or not np.isnan(ic15):
             ic30_s = f"{ic30:+.3f}" if not np.isnan(ic30) else "  -  "
             ic15_s = f"{ic15:+.3f}" if not np.isnan(ic15) else "  -  "
-            print(f"{col:<12}{ic30_s:>10}{ic15_s:>10}")
+            print(f"{col:<14}{ic30_s:>10}{ic15_s:>10}")
 
 
 if __name__ == "__main__":

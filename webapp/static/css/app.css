@@ -258,13 +258,26 @@ main { padding: 28px 32px 80px; min-width: 0; }
 
 .factors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .factors-5 { grid-template-columns: repeat(5, 1fr); }
-@media (max-width: 700px) { .factors-5 { grid-template-columns: repeat(2, 1fr); } }
+.factors-7 { grid-template-columns: repeat(7, 1fr); }
+@media (max-width: 700px) {
+  .factors-5 { grid-template-columns: repeat(2, 1fr); }
+  .factors-7 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 701px) and (max-width: 1100px) {
+  .factors-7 { grid-template-columns: repeat(4, 1fr); }
+}
 .factor { background: var(--surface-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 9px 11px; }
 .factor-label { font-size: 11px; color: var(--ink-3); font-weight: 600; }
 .factor-row { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
 .factor-val { font-size: 15px; font-weight: 800; }
 .factor-mini { width: 40px; height: 5px; border-radius: 99px; background: var(--line-2); overflow: hidden; }
 .factor-mini > span { display: block; height: 100%; border-radius: 99px; }
+/* Phase A-1/A-4 신규 팩터 — value, IQC alpha 시각적 차별화 */
+.factor.factor-new {
+  background: linear-gradient(135deg, var(--surface-2), rgba(6, 182, 212, 0.08));
+  border-color: rgba(6, 182, 212, 0.35);
+}
+.factor.factor-new .factor-label { color: #06b6d4; }
 
 .scard-actions { display: flex; gap: 8px; align-items: center; }
 .amt-pills { flex: 1; display: flex; gap: 6px; }
@@ -331,6 +344,64 @@ table.t tr:hover td { background: var(--line-2); }
 .b-up { background: rgba(34, 197, 94, .15); color: var(--green); }
 .b-down { background: rgba(59, 130, 246, .15); color: var(--down); }
 .b-flat { background: var(--line-2); color: var(--ink-3); }
+
+/* AI verdict badges */
+.b-pass { background: rgba(34, 197, 94, .18); color: #15803d; }
+.b-caution { background: rgba(251, 191, 36, .22); color: #b45309; }
+.b-reject { background: rgba(239, 68, 68, .18); color: #b91c1c; }
+.b-unreviewed { background: var(--line-2); color: var(--ink-3); }
+
+.scard-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* Verdict-specific card accents */
+.scard.verdict-reject {
+  border: 1px solid rgba(239, 68, 68, .35);
+  background: linear-gradient(180deg, rgba(254,242,242,.6), var(--surface));
+}
+.scard.verdict-caution {
+  border: 1px solid rgba(251, 191, 36, .35);
+}
+.scard.verdict-pass {
+  border: 1px solid rgba(34, 197, 94, .25);
+}
+
+/* AI reasoning panel */
+.ai-panel {
+  margin-top: 10px; padding: 10px 12px;
+  border-radius: 10px; font-size: 13px; line-height: 1.5;
+  background: var(--line-2);
+}
+.ai-panel-pass    { background: rgba(34, 197, 94, .08); }
+.ai-panel-caution { background: rgba(251, 191, 36, .12); }
+.ai-panel-reject  { background: rgba(239, 68, 68, .10); }
+.ai-panel-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-weight: 700; font-size: 11.5px; color: var(--ink-2);
+  text-transform: uppercase; letter-spacing: .04em;
+  margin-bottom: 4px;
+}
+.ai-panel-body { color: var(--ink); }
+.ai-conf { font-size: 10.5px; color: var(--ink-3); }
+.ai-flags { margin: 6px 0 0; padding-left: 0; list-style: none; font-size: 12px; color: #b91c1c; }
+.ai-flags li { margin: 2px 0; }
+
+/* "Force buy" override (AI REJECT) — collapsible to discourage casual click */
+.scard-override {
+  margin-top: 10px; border: 1px dashed rgba(239, 68, 68, .35);
+  border-radius: 10px; padding: 8px 10px; background: rgba(254,242,242,.4);
+}
+.scard-override summary {
+  cursor: pointer; font-size: 12.5px; font-weight: 700;
+  color: #b91c1c; user-select: none;
+}
+.scard-override[open] summary { margin-bottom: 8px; }
+.btn-warning {
+  background: #ef4444; color: #fff; border: 0; border-radius: 10px;
+  padding: 8px 14px; font-weight: 700; cursor: pointer;
+  font-family: inherit; font-size: 13px;
+}
+.btn-warning:hover { background: #dc2626; }
+.btn-warning:active { transform: translateY(1px); }
 
 /* ============ TABS / SEGMENTS ============ */
 .pill-tab { display: inline-flex; gap: 4px; background: var(--line-2); padding: 3px; border-radius: 999px; }

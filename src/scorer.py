@@ -290,13 +290,17 @@ def get_regime_weights(regime: str, config: dict) -> dict:
         "quality":        factors["quality"],
         "mean_reversion": factors["mean_reversion"],
         "volatility":     factors.get("volatility", 0),  # added 2026-04-25
+        "value":          factors.get("value", 0),       # added 2026-05-02 Phase A-1
+        "iqc_alpha":      factors.get("iqc_alpha", 0),   # added 2026-05-02 Phase A-4
     }
     regime_cfg = config.get("regime", {})
     if not regime_cfg.get("enabled", False):
         return base
     override = regime_cfg.get(regime, {}).get("weights_override")
     if override:
-        # Ensure 'volatility' present even if regime override doesn't list it
+        # Newer factors (volatility, value) inherit from base when override
+        # doesn't list them. Bull/bear overrides written before these factors
+        # existed; will be retuned after Phase A-3 backtest.
         return {**base, **override}
     return base
 
@@ -568,6 +572,194 @@ def compute_mean_reversion_absolute(
     return pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame()
 
 
+def compute_value_absolute(
+    fundamentals: pd.DataFrame,
+    config: dict,
+) -> pd.DataFrame:
+    """Pure value factor — earnings yield (1/PER) + book yield (1/PBR).
+
+    Distinct from quality (which mixes value+ROE+debt). Value is pure
+    cheapness: low P/E and low P/B. Validated by:
+      - Fama-French HML (1992) — long-term value premium
+      - WorldQuant IQC Alpha 3 (Sharpe 2.00) — short overpriced via EV/EBITDA z-score
+      - Korea-specific: 69% of KOSPI trades below book; Value-up policy
+        driving 2024-2026 outperformance.
+
+    Phase A-1 (2026-05-02). Re-verify weighting after Phase A-3 backtest.
+    """
+    v_thr = _abs_cfg(config)["value"]
+    sub_cfg = config["scoring"]["value"]
+    w_ey = sub_cfg["earnings_yield_weight"]
+    w_by = sub_cfg["book_yield_weight"]
+
+    if fundamentals.empty:
+        return pd.DataFrame()
+
+    rows = []
+    for ticker, row in fundamentals.iterrows():
+        per = float(row.get("PER", 0) or 0)
+        pbr = float(row.get("PBR", 0) or 0)
+
+        ey = (1.0 / per) if per > 0 else None
+        by = (1.0 / pbr) if pbr > 0 else None
+
+        sub_scores = []
+        sub_weights = []
+        if ey is not None:
+            sub_scores.append(threshold_score(ey, v_thr["earnings_yield"]))
+            sub_weights.append(w_ey)
+        if by is not None:
+            sub_scores.append(threshold_score(by, v_thr["book_yield"]))
+            sub_weights.append(w_by)
+
+        if not sub_scores:
+            combined = 50.0  # no data → neutral
+        else:
+            combined = sum(s * w for s, w in zip(sub_scores, sub_weights)) / sum(sub_weights)
+
+        rows.append({
+            "ticker": ticker,
+            "earnings_yield_v": ey if ey is not None else 0,
+            "book_yield_v": by if by is not None else 0,
+            "value_score": combined,
+        })
+
+    return pd.DataFrame(rows).set_index("ticker") if rows else pd.DataFrame()
+
+
+# ============================================================
+# IQC alpha candidates (Phase A-2, 2026-05-02)
+# ============================================================
+# Korean adaptations of WorldQuant IQC 2025 winning alphas (Glazar writeup).
+# Validated on US Top 200~3000 with Sharpe 1.58~1.80. Korean Sharpe expected
+# 30~50% lower (universe smaller, microstructure differs). Default weight = 0
+# in config; activated only after Phase A-3 backtest IC validation.
+#
+# Why include both: they overlap with our existing mean_reversion factor but
+# use different signals. Backtest will tell us whether to (a) replace mean_rev,
+# (b) ensemble with mean_rev, or (c) drop them. See [docs/iqc_research.md].
+
+def compute_iqc_alpha1_absolute(
+    price_panel: dict[str, pd.DataFrame],
+    config: dict,
+) -> pd.DataFrame:
+    """IQC Alpha 1 — simple intraday reversion. (Glazar 2025, US Sharpe 1.80)
+
+    Original: (high+low)/2 - close
+    Korean adaptation: ((high+low)/2 - close) / close — normalized
+    Score: percentile rank within universe (higher = closing below midpoint
+    more = stronger reversion buy signal).
+
+    Intuition: when daily close drops below the high-low midpoint, the
+    stock closed weak intraday → mean-reversion buy next session.
+    """
+    rows = []
+    for ticker, df in price_panel.items():
+        if df.empty or len(df) < 2:
+            continue
+        last = df.iloc[-1]
+        h = float(last.get("high", 0) or 0)
+        l = float(last.get("low", 0) or 0)
+        c = float(last.get("close", 0) or 0)
+        if c <= 0 or h <= 0 or l <= 0:
+            continue
+        signal = ((h + l) / 2.0 - c) / c   # >0 means closed below midpoint
+        rows.append({"ticker": ticker, "iqc1_signal": signal})
+
+    if not rows:
+        return pd.DataFrame()
+    out = pd.DataFrame(rows).set_index("ticker")
+    out["iqc_alpha1_score"] = out["iqc1_signal"].rank(pct=True) * 100.0
+    return out
+
+
+def compute_iqc_alpha2_absolute(
+    price_panel: dict[str, pd.DataFrame],
+    config: dict,
+) -> pd.DataFrame:
+    """IQC Alpha 2 — recent-peak-focused reversion. (Glazar 2025, US Sharpe 1.58)
+
+    Original: (vwap-close)/close ÷ min(ts_decay_linear(rank(ts_arg_max(close,30)),1), 0.15)
+    Korean adaptation:
+      - vwap ≈ (high+low+close)/3 (typical price; KR daily OHLCV has no intraday vwap)
+      - ts_arg_max(close, 30) = trading days since 30-day high (0 = today)
+      - rank across universe → 0..1
+      - divisor capped at 0.15 → max amplification ~6.7x for recently-peaked names
+
+    Intuition: when a stock recently peaked (small rank) and now closes weak
+    relative to its typical price, that is a stronger reversion signal than
+    the same weakness in a stock that peaked long ago.
+    """
+    rows = []
+    for ticker, df in price_panel.items():
+        if df.empty or len(df) < 31:
+            continue
+        last_30 = df.tail(30)
+        last = last_30.iloc[-1]
+        h = float(last.get("high", 0) or 0)
+        l = float(last.get("low", 0) or 0)
+        c = float(last.get("close", 0) or 0)
+        if c <= 0 or h <= 0 or l <= 0:
+            continue
+        vwap_proxy = (h + l + c) / 3.0
+        vwap_dev = (vwap_proxy - c) / c   # >0 means closed below typical price
+        # Trading days since 30-day max (0 = today, 29 = 30 days ago)
+        close_30 = last_30["close"].reset_index(drop=True)
+        days_since_max = (len(close_30) - 1) - int(close_30.idxmax())
+        rows.append({
+            "ticker": ticker,
+            "vwap_dev": vwap_dev,
+            "days_since_30d_max": days_since_max,
+        })
+
+    if not rows:
+        return pd.DataFrame()
+    out = pd.DataFrame(rows).set_index("ticker")
+    # Cross-sectional rank of days-since-max → 0..1
+    out["dsm_rank"] = out["days_since_30d_max"].rank(pct=True)
+    # Cap divisor at 0.15 (per original formula); floor at 0.01 to avoid div0
+    divisor = out["dsm_rank"].clip(lower=0.01, upper=0.15)
+    out["iqc2_signal"] = out["vwap_dev"] / divisor
+    out["iqc_alpha2_score"] = out["iqc2_signal"].rank(pct=True) * 100.0
+    return out
+
+
+def compute_iqc_combined_absolute(
+    price_panel: dict[str, pd.DataFrame],
+    config: dict,
+) -> pd.DataFrame:
+    """Combined IQC alpha factor — 50/50 blend of iqc_alpha1 and iqc_alpha2.
+
+    Phase A-4 (2026-05-02). Activated after factor_research IC analysis showed:
+      - iqc_alpha1 30d IC = +0.319 (Korean Top 300)
+      - iqc_alpha2 30d IC = +0.334 (Korean Top 300)
+      - Both essentially tied with vol_20d (+0.342) as strongest signals.
+      - 15d IC ~ 0 → these are 30-day-horizon signals, not short-term.
+    Combine into one factor to avoid double-counting (iqc1 and iqc2 share
+    most of their information; correlation expected ~0.8).
+    """
+    sub_cfg = config["scoring"].get("iqc_alpha", {})
+    w1 = float(sub_cfg.get("alpha1_weight", 50))
+    w2 = float(sub_cfg.get("alpha2_weight", 50))
+    wsum = w1 + w2
+    if wsum <= 0:
+        return pd.DataFrame()
+
+    iqc1 = compute_iqc_alpha1_absolute(price_panel, config)
+    iqc2 = compute_iqc_alpha2_absolute(price_panel, config)
+    if iqc1.empty and iqc2.empty:
+        return pd.DataFrame()
+
+    df = pd.concat(
+        [iqc1[["iqc_alpha1_score"]], iqc2[["iqc_alpha2_score"]]],
+        axis=1,
+    ).fillna(50.0)
+    df["iqc_alpha_score"] = (
+        df["iqc_alpha1_score"] * w1 + df["iqc_alpha2_score"] * w2
+    ) / wsum
+    return df
+
+
 def compute_volatility_absolute(
     price_panel: dict[str, pd.DataFrame],
     config: dict,
@@ -610,12 +802,15 @@ def combine_scores_absolute(
     config: dict,
     universe_index: Optional[pd.Index] = None,
     volatility: Optional[pd.DataFrame] = None,
+    value: Optional[pd.DataFrame] = None,
+    iqc_alpha: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     """Combine factor scores into base_score then apply top-of-day bonus.
 
     Output columns:
       momentum_score, supply_demand_score, quality_score, mean_reversion_score,
-      volatility_score, base_score, top_bonus, total_score, amount_krw (set later)
+      volatility_score, value_score, iqc_alpha_score, base_score, top_bonus,
+      total_score, amount_krw (set later)
     """
     # merge
     frames = []
@@ -629,6 +824,10 @@ def combine_scores_absolute(
         frames.append(reversion[["mean_reversion_score"]])
     if volatility is not None and not volatility.empty:
         frames.append(volatility[["volatility_score"]])
+    if value is not None and not value.empty:
+        frames.append(value[["value_score"]])
+    if iqc_alpha is not None and not iqc_alpha.empty:
+        frames.append(iqc_alpha[["iqc_alpha_score"]])
 
     if not frames:
         return pd.DataFrame()
@@ -637,10 +836,13 @@ def combine_scores_absolute(
     # Fill missing factor scores with 50 (neutral) so one missing factor doesn't zero the whole.
     df = df.fillna(50.0)
 
-    # Pull volatility weight if configured (default 0 for backward compat)
+    # Pull weights for newer factors (default 0 for backward compat)
     vol_w = float(weights.get("volatility", 0))
+    val_w = float(weights.get("value", 0))
+    iqc_w = float(weights.get("iqc_alpha", 0))
     wsum = (weights["momentum"] + weights["supply_demand"]
-            + weights["quality"] + weights["mean_reversion"] + vol_w)
+            + weights["quality"] + weights["mean_reversion"]
+            + vol_w + val_w + iqc_w)
 
     df["base_score"] = (
         df.get("momentum_score", 50) * weights["momentum"]
@@ -648,6 +850,8 @@ def combine_scores_absolute(
         + df.get("quality_score", 50) * weights["quality"]
         + df.get("mean_reversion_score", 50) * weights["mean_reversion"]
         + df.get("volatility_score", 50) * vol_w
+        + df.get("value_score", 50) * val_w
+        + df.get("iqc_alpha_score", 50) * iqc_w
     ) / wsum
 
     # Top-of-day bonus

@@ -24,29 +24,6 @@
         "mean_reversion": 10.0
       }
     },
-    "483650": {
-      "ticker": "483650",
-      "name": "달바글로벌",
-      "entry_price": 235000.0,
-      "entry_date": "2026-04-24",
-      "qty": 2,
-      "initial_qty": 2,
-      "cost_krw": 470000.0,
-      "entry_score": 66.0627763762,
-      "sector": null,
-      "highest_price": 241000.0,
-      "partial_taken": false,
-      "realized_pnl_krw": 0,
-      "last_added_date": "2026-04-25",
-      "add_count": 1,
-      "entry_factors": {
-        "momentum": 95.0,
-        "supply_demand": 93.983175242,
-        "quality": 24.2549240293,
-        "volatility": 41.7874396135,
-        "mean_reversion": 10.0
-      }
-    },
     "375500": {
       "ticker": "375500",
       "name": "DL이앤씨",
@@ -182,5 +159,5 @@
       "mode": "simulation"
     }
   },
-  "updated_at": "2026-05-01"
+  "updated_at": "2026-05-06"
 }

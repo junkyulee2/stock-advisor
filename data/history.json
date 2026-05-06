@@ -259,6 +259,21 @@
       "entry_price": 13295.0,
       "entry_date": "2026-04-30",
       "exit_date": "2026-05-06"
+    },
+    {
+      "ticker": "009830",
+      "name": "한화솔루션",
+      "action": "sell",
+      "sell_ratio": 1.0,
+      "qty": 5,
+      "price": 48100.0,
+      "proceeds_krw": 240500.0,
+      "pnl_krw": -13000.0,
+      "pnl_pct": -5.128205128205132,
+      "reason": "manual_full",
+      "entry_price": 50700.0,
+      "entry_date": "2026-05-01",
+      "exit_date": "2026-05-06"
     }
   ]
 }

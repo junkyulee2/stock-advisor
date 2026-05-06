@@ -214,6 +214,21 @@
       "entry_price": 13295.0,
       "entry_date": "2026-04-30",
       "exit_date": "2026-05-01"
+    },
+    {
+      "ticker": "483650",
+      "name": "달바글로벌",
+      "action": "sell",
+      "sell_ratio": 1.0,
+      "qty": 2,
+      "price": 217000.0,
+      "proceeds_krw": 434000.0,
+      "pnl_krw": -36000.0,
+      "pnl_pct": -7.659574468085106,
+      "reason": "manual_full",
+      "entry_price": 235000.0,
+      "entry_date": "2026-04-24",
+      "exit_date": "2026-05-06"
     }
   ]
 }

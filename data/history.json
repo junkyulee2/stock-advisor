@@ -229,6 +229,21 @@
       "entry_price": 235000.0,
       "entry_date": "2026-04-24",
       "exit_date": "2026-05-06"
+    },
+    {
+      "ticker": "375500",
+      "name": "DL이앤씨",
+      "action": "sell",
+      "sell_ratio": 1.0,
+      "qty": 2,
+      "price": 93600.0,
+      "proceeds_krw": 187200.0,
+      "pnl_krw": -10800.0,
+      "pnl_pct": -5.454545454545457,
+      "reason": "manual_full",
+      "entry_price": 99000.0,
+      "entry_date": "2026-04-25",
+      "exit_date": "2026-05-06"
     }
   ]
 }

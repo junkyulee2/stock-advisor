@@ -68,28 +68,6 @@
       "realized_pnl_krw": 0,
       "mode": "simulation"
     },
-    "009830": {
-      "ticker": "009830",
-      "name": "한화솔루션",
-      "entry_price": 50700.0,
-      "entry_date": "2026-05-01",
-      "qty": 5,
-      "initial_qty": 5,
-      "cost_krw": 253500.0,
-      "entry_score": 82.9936462647,
-      "entry_factors": {
-        "momentum": 95.0,
-        "supply_demand": 80.9873220255,
-        "quality": 79.0625,
-        "volatility": 61.3744075829,
-        "mean_reversion": 10.0
-      },
-      "sector": null,
-      "highest_price": 50700.0,
-      "partial_taken": false,
-      "realized_pnl_krw": 0,
-      "mode": "simulation"
-    },
     "009900": {
       "ticker": "009900",
       "name": "명신산업",

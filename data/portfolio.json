@@ -24,30 +24,6 @@
         "mean_reversion": 10.0
       }
     },
-    "375500": {
-      "ticker": "375500",
-      "name": "DL이앤씨",
-      "entry_price": 99000.0,
-      "entry_date": "2026-04-25",
-      "qty": 2,
-      "initial_qty": 2,
-      "cost_krw": 198000.0,
-      "entry_score": 81.5462055581,
-      "sector": null,
-      "highest_price": 101100.0,
-      "partial_taken": false,
-      "realized_pnl_krw": 0,
-      "mode": "simulation",
-      "last_added_date": "2026-04-25",
-      "add_count": 1,
-      "entry_factors": {
-        "momentum": 80.6648864618,
-        "supply_demand": 83.04927153,
-        "quality": 81.7260458839,
-        "volatility": 87.922705314,
-        "mean_reversion": 10.0
-      }
-    },
     "440110": {
       "ticker": "440110",
       "name": "파두",

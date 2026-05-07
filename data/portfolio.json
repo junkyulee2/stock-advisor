@@ -63,7 +63,7 @@
         "mean_reversion": 10.0
       },
       "sector": null,
-      "highest_price": 184700.0,
+      "highest_price": 193600.0,
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "mode": "simulation"

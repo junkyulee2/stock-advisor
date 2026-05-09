@@ -15,7 +15,7 @@ _history_cache: dict[tuple[tuple[str, ...], int], tuple[float, pd.DataFrame]] = 
 
 
 def fetch_current_prices(tickers: tuple[str, ...]) -> dict[str, float]:
-    """Last close per ticker. Cached 30 minutes."""
+    """Last close per ticker. Parallel FDR fetch, cached 30 minutes."""
     if not tickers:
         return {}
     key = tuple(sorted(tickers))
@@ -24,16 +24,24 @@ def fetch_current_prices(tickers: tuple[str, ...]) -> dict[str, float]:
         return cached[1]
 
     import FinanceDataReader as fdr
+    from concurrent.futures import ThreadPoolExecutor
     today_s = datetime.now().strftime("%Y-%m-%d")
     week_s = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
-    out: dict[str, float] = {}
-    for t in tickers:
+
+    def _one(t: str) -> tuple[str, float | None]:
         try:
             df = fdr.DataReader(t, week_s, today_s)
             if not df.empty:
-                out[t] = float(df["Close"].iloc[-1])
+                return t, float(df["Close"].iloc[-1])
         except Exception:
             pass
+        return t, None
+
+    out: dict[str, float] = {}
+    with ThreadPoolExecutor(max_workers=min(8, len(tickers))) as ex:
+        for t, price in ex.map(_one, tickers):
+            if price is not None:
+                out[t] = price
     _price_cache[key] = (time.time(), out)
     return out
 

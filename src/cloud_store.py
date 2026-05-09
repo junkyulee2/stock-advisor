@@ -42,12 +42,31 @@ def is_configured() -> bool:
     return _get_token() is not None
 
 
+_REPO_CACHE: dict = {}
+
+
 def _repo():
+    """Cached Github repo handle. Saves the per-call auth + repo lookup
+    (~300-500ms each on Render free dyno)."""
+    cached = _REPO_CACHE.get("repo")
+    if cached is not None:
+        return cached
     from github import Github
     tok = _get_token()
     if not tok:
         raise RuntimeError("GITHUB_TOKEN not configured in env or Streamlit secrets")
-    return Github(tok).get_repo(_get_repo_name())
+    repo = Github(tok).get_repo(_get_repo_name())
+    _REPO_CACHE["repo"] = repo
+    return repo
+
+
+def list_directory(path: str) -> list[str]:
+    """Return filenames in a repo directory. Single API call (vs N probes)."""
+    repo = _repo()
+    contents = repo.get_contents(path, ref="main")
+    if not isinstance(contents, list):
+        return []
+    return [c.name for c in contents if c.type == "file"]
 
 
 def read_json(path: str) -> tuple[Any, Optional[str]]:

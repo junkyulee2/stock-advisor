@@ -103,17 +103,22 @@ def load_history() -> tuple[dict, str | None]:
 def _list_score_filenames() -> list[str]:
     """Return ['scores_YYYYMMDD.json', ...] sorted newest-first.
 
+    Cloud mode: single directory-listing API call (was 14 sequential probes).
     Local mode: glob the directory.
-    Cloud mode: probe last 14 days (no list API in cloud_store).
     """
     if CLOUD_MODE:
-        from datetime import datetime, timedelta
-        today = datetime.now()
-        names: list[str] = []
-        for i in range(14):
-            d = today - timedelta(days=i)
-            names.append(f"scores_{d.strftime('%Y%m%d')}.json")
-        return names
+        try:
+            names = cloud_store.list_directory(SCORES_DIR)
+            return sorted(
+                [n for n in names if n.startswith("scores_") and n.endswith(".json")],
+                reverse=True,
+            )
+        except Exception:
+            # Fallback: probe last 7 days if listing fails
+            from datetime import datetime, timedelta
+            today = datetime.now()
+            return [f"scores_{(today - timedelta(days=i)).strftime('%Y%m%d')}.json"
+                    for i in range(7)]
     local_dir = PROJECT_ROOT / SCORES_DIR
     if not local_dir.exists():
         return []

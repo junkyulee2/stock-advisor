@@ -20,17 +20,18 @@ universe:
 # See docs/factor_research_2026-04-25.md
 scoring:
   factors:
-    # Phase A-1 (2026-05-02): value 팩터 신규 분리 (가중치 10).
-    # Quality에 묻혀있던 PBR_inv/EarningsYield를 순수 저평가 팩터로 독립.
-    # 출처: WorldQuant IQC Alpha 3 (Sharpe 2.00) + Fama-French HML +
-    # Korea Value-up 정책 모멘텀. IC 백테스트는 Phase A-3에서 검증.
-    momentum:       30   # was 35 — 5pt to value
-    supply_demand:  25
-    quality:        10   # was 15 — 5pt to value (PBR_inv 분리)
-    value:          10   # Phase A-1 — pure cheapness (B/P + E/P)
-    volatility:     10   # vol_20d strongest 15d signal (IC +0.311 on 2026-04-25)
-    mean_reversion: 10   # was 15 — 5pt to iqc_alpha (30d reversion 의미 중첩)
-    iqc_alpha:      5    # Phase A-4 — IQC2025 우승 alpha (한국 30d IC +0.32~0.33)
+    # 2026-05-10 OOS reweight (보수적 1차안). 5y walk-forward + train(4y)/test(1y)
+    # 검증 결과 momentum 가중치가 한국 시장에서 작동 안 함이 확인됨
+    # (in-sample alpha -143%p, 라이브 8연패). Grid optimal은 momentum=0이지만
+    # supply_demand panel 결손과 강세장 거품 우려로 절반만 이동.
+    # 상세: data/research/walk_forward_oos_20260510_*.json
+    momentum:       10   # was 30 — 한국 momentum 시장성 부정 (vol/reversion으로 대체)
+    supply_demand:  15   # was 25 — 단독 의존 줄임 (8연패 근본 원인 의심)
+    quality:        10
+    value:          10
+    volatility:     20   # was 10 — OOS 가장 강한 단일 시그널
+    mean_reversion: 20   # was 10 — 한국 = mean-reversion 시장 가설
+    iqc_alpha:      15   # was 5  — IQC2025 30d IC +0.32~0.33 강한 신호
 
   # Absolute thresholds for each factor (linear interpolation between points).
   # Values are sorted by `value` asc; between points the score is interpolated.

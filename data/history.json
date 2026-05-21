@@ -294,6 +294,21 @@
       "cost_krw": 242100.0,
       "entry_score": 80.2376343093,
       "entry_date": "2026-05-21"
+    },
+    {
+      "ticker": "126340",
+      "name": "비나텍",
+      "action": "sell",
+      "sell_ratio": 1.0,
+      "qty": 1,
+      "price": 141900.0,
+      "proceeds_krw": 141900.0,
+      "pnl_krw": -36000.0,
+      "pnl_pct": -20.236087689713322,
+      "reason": "manual_full",
+      "entry_price": 177900.0,
+      "entry_date": "2026-04-30",
+      "exit_date": "2026-05-21"
     }
   ]
 }

@@ -309,6 +309,21 @@
       "entry_price": 177900.0,
       "entry_date": "2026-04-30",
       "exit_date": "2026-05-21"
+    },
+    {
+      "ticker": "009900",
+      "name": "명신산업",
+      "action": "sell",
+      "sell_ratio": 1.0,
+      "qty": 22,
+      "price": 10660.0,
+      "proceeds_krw": 234520.0,
+      "pnl_krw": -58080.0,
+      "pnl_pct": -19.849624060150372,
+      "reason": "manual_full",
+      "entry_price": 13300.0,
+      "entry_date": "2026-05-01",
+      "exit_date": "2026-05-21"
     }
   ]
 }

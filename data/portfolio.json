@@ -111,7 +111,29 @@
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "mode": "simulation"
+    },
+    "011170": {
+      "ticker": "011170",
+      "name": "롯데케미칼",
+      "entry_price": 80700.0,
+      "entry_date": "2026-05-21",
+      "qty": 3,
+      "initial_qty": 3,
+      "cost_krw": 242100.0,
+      "entry_score": 80.2376343093,
+      "entry_factors": {
+        "momentum": 13.3954161308,
+        "supply_demand": 57.0025130677,
+        "quality": 95.0,
+        "volatility": 93.9086294416,
+        "mean_reversion": 95.0
+      },
+      "sector": null,
+      "highest_price": 80700.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0,
+      "mode": "simulation"
     }
   },
-  "updated_at": "2026-05-18"
+  "updated_at": "2026-05-21"
 }

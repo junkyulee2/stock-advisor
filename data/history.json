@@ -284,6 +284,16 @@
       "cost_krw": 318000.0,
       "entry_score": 90.0024308125,
       "entry_date": "2026-05-18"
+    },
+    {
+      "ticker": "011170",
+      "name": "롯데케미칼",
+      "action": "buy",
+      "qty": 3,
+      "price": 80700.0,
+      "cost_krw": 242100.0,
+      "entry_score": 80.2376343093,
+      "entry_date": "2026-05-21"
     }
   ]
 }

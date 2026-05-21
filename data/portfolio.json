@@ -26,11 +26,11 @@
     "010060": {
       "ticker": "010060",
       "name": "OCI홀딩스",
-      "entry_price": 299250.0,
+      "entry_price": 293000.0,
       "entry_date": "2026-05-18",
-      "qty": 2,
-      "initial_qty": 2,
-      "cost_krw": 598500.0,
+      "qty": 3,
+      "initial_qty": 3,
+      "cost_krw": 879000.0,
       "entry_score": 90.0024308125,
       "entry_factors": {
         "momentum": 50.4057099272,
@@ -45,7 +45,7 @@
       "realized_pnl_krw": 0,
       "mode": "simulation",
       "last_added_date": "2026-05-21",
-      "add_count": 1
+      "add_count": 2
     },
     "011170": {
       "ticker": "011170",

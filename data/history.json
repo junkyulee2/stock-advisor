@@ -324,6 +324,17 @@
       "entry_price": 13300.0,
       "entry_date": "2026-05-01",
       "exit_date": "2026-05-21"
+    },
+    {
+      "ticker": "010060",
+      "name": "OCI홀딩스",
+      "action": "buy",
+      "type": "add",
+      "qty": 1,
+      "price": 280500.0,
+      "cost_krw": 280500.0,
+      "entry_score": 77.3236363215,
+      "entry_date": "2026-05-21"
     }
   ]
 }

@@ -68,6 +68,28 @@
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "mode": "simulation"
+    },
+    "004800": {
+      "ticker": "004800",
+      "name": "효성",
+      "entry_price": 193800.0,
+      "entry_date": "2026-05-28",
+      "qty": 1,
+      "initial_qty": 1,
+      "cost_krw": 193800.0,
+      "entry_score": 84.8232851526,
+      "entry_factors": {
+        "momentum": 8.7005804461,
+        "supply_demand": 58.7380931247,
+        "quality": 77.2745098039,
+        "volatility": 91.2371134021,
+        "mean_reversion": 95.0
+      },
+      "sector": null,
+      "highest_price": 193800.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0,
+      "mode": "simulation"
     }
   },
   "updated_at": "2026-05-28"

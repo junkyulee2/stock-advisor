@@ -28,9 +28,9 @@
       "name": "OCI홀딩스",
       "entry_price": 289875.0,
       "entry_date": "2026-05-18",
-      "qty": 4,
-      "initial_qty": 4,
-      "cost_krw": 1159500.0,
+      "qty": 2,
+      "initial_qty": 2,
+      "cost_krw": 579750.0,
       "entry_score": 90.0024308125,
       "entry_factors": {
         "momentum": 50.4057099272,
@@ -41,8 +41,8 @@
       },
       "sector": null,
       "highest_price": 388000.0,
-      "partial_taken": false,
-      "realized_pnl_krw": 0,
+      "partial_taken": true,
+      "realized_pnl_krw": 148250.0,
       "mode": "simulation",
       "last_added_date": "2026-05-21",
       "add_count": 3
@@ -70,5 +70,5 @@
       "mode": "simulation"
     }
   },
-  "updated_at": "2026-05-21"
+  "updated_at": "2026-05-28"
 }

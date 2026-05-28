@@ -357,6 +357,21 @@
       "cost_krw": 280500.0,
       "entry_score": 77.3236363215,
       "entry_date": "2026-05-21"
+    },
+    {
+      "ticker": "010060",
+      "name": "OCI홀딩스",
+      "action": "sell",
+      "sell_ratio": 0.5,
+      "qty": 2,
+      "price": 364000.0,
+      "proceeds_krw": 728000.0,
+      "pnl_krw": 148250.0,
+      "pnl_pct": 25.571366968520913,
+      "reason": "manual_half",
+      "entry_price": 289875.0,
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-05-28"
     }
   ]
 }

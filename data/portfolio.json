@@ -1,30 +1,6 @@
 {
   "cash_krw": 0,
   "positions": {
-    "010060": {
-      "ticker": "010060",
-      "name": "OCI홀딩스",
-      "entry_price": 289875.0,
-      "entry_date": "2026-05-18",
-      "qty": 2,
-      "initial_qty": 2,
-      "cost_krw": 579750.0,
-      "entry_score": 90.0024308125,
-      "entry_factors": {
-        "momentum": 50.4057099272,
-        "supply_demand": 73.6803636099,
-        "quality": 60.8167770419,
-        "volatility": 99.0049751244,
-        "mean_reversion": 95.0
-      },
-      "sector": null,
-      "highest_price": 388000.0,
-      "partial_taken": true,
-      "realized_pnl_krw": 148250.0,
-      "mode": "simulation",
-      "last_added_date": "2026-05-21",
-      "add_count": 3
-    },
     "011170": {
       "ticker": "011170",
       "name": "롯데케미칼",

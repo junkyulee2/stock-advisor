@@ -382,6 +382,21 @@
       "cost_krw": 193800.0,
       "entry_score": 84.8232851526,
       "entry_date": "2026-05-28"
+    },
+    {
+      "ticker": "440110",
+      "name": "파두",
+      "action": "sell",
+      "sell_ratio": 1.0,
+      "qty": 2,
+      "price": 111100.0,
+      "proceeds_krw": 222200.0,
+      "pnl_krw": 59000.0,
+      "pnl_pct": 36.15196078431373,
+      "reason": "manual_full",
+      "entry_price": 81600.0,
+      "entry_date": "2026-04-28",
+      "exit_date": "2026-06-01"
     }
   ]
 }

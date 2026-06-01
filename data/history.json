@@ -397,6 +397,21 @@
       "entry_price": 81600.0,
       "entry_date": "2026-04-28",
       "exit_date": "2026-06-01"
+    },
+    {
+      "ticker": "010060",
+      "name": "OCI홀딩스",
+      "action": "sell",
+      "sell_ratio": 1.0,
+      "qty": 2,
+      "price": 351000.0,
+      "proceeds_krw": 702000.0,
+      "pnl_krw": 122250.0,
+      "pnl_pct": 21.086675291073732,
+      "reason": "manual_full",
+      "entry_price": 289875.0,
+      "entry_date": "2026-05-18",
+      "exit_date": "2026-06-01"
     }
   ]
 }

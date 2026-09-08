@@ -6,9 +6,9 @@
       "name": "미래에셋생명",
       "entry_price": 19860.0,
       "entry_date": "2026-09-08",
-      "qty": 10,
-      "initial_qty": 10,
-      "cost_krw": 198600.0,
+      "qty": 15,
+      "initial_qty": 15,
+      "cost_krw": 297900.0,
       "entry_score": 86.7556746708,
       "entry_factors": {
         "momentum": 69.3955048519,
@@ -23,7 +23,7 @@
       "realized_pnl_krw": 0,
       "mode": "simulation",
       "last_added_date": "2026-09-08",
-      "add_count": 1
+      "add_count": 2
     }
   },
   "updated_at": "2026-09-08"

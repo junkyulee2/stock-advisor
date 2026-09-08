@@ -44,7 +44,29 @@
       "partial_taken": false,
       "realized_pnl_krw": 0,
       "mode": "simulation"
+    },
+    "085620": {
+      "ticker": "085620",
+      "name": "미래에셋생명",
+      "entry_price": 19860.0,
+      "entry_date": "2026-09-08",
+      "qty": 5,
+      "initial_qty": 5,
+      "cost_krw": 99300.0,
+      "entry_score": 86.7556746708,
+      "entry_factors": {
+        "momentum": 69.3955048519,
+        "supply_demand": 41.77177986,
+        "quality": 51.528705331,
+        "volatility": 98.9361702128,
+        "mean_reversion": 95.0
+      },
+      "sector": null,
+      "highest_price": 19860.0,
+      "partial_taken": false,
+      "realized_pnl_krw": 0,
+      "mode": "simulation"
     }
   },
-  "updated_at": "2026-06-01"
+  "updated_at": "2026-09-08"
 }

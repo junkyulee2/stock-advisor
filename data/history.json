@@ -422,6 +422,21 @@
       "cost_krw": 99300.0,
       "entry_score": 86.7556746708,
       "entry_date": "2026-09-08"
+    },
+    {
+      "ticker": "011170",
+      "name": "롯데케미칼",
+      "action": "sell",
+      "sell_ratio": 0.5,
+      "qty": 1,
+      "price": 57400.0,
+      "proceeds_krw": 57400.0,
+      "pnl_krw": -23300.0,
+      "pnl_pct": -28.872366790582404,
+      "reason": "manual_half",
+      "entry_price": 80700.0,
+      "entry_date": "2026-05-21",
+      "exit_date": "2026-09-08"
     }
   ]
 }

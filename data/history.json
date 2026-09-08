@@ -437,6 +437,21 @@
       "entry_price": 80700.0,
       "entry_date": "2026-05-21",
       "exit_date": "2026-09-08"
+    },
+    {
+      "ticker": "004800",
+      "name": "효성",
+      "action": "sell",
+      "sell_ratio": 1.0,
+      "qty": 1,
+      "price": 166400.0,
+      "proceeds_krw": 166400.0,
+      "pnl_krw": -27400.0,
+      "pnl_pct": -14.138286893704855,
+      "reason": "manual_full",
+      "entry_price": 193800.0,
+      "entry_date": "2026-05-28",
+      "exit_date": "2026-09-08"
     }
   ]
 }
